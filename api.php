@@ -1,6 +1,6 @@
 <?php
 header("Content-Type: application/json");
-require_once 'config.php'; // Database configuration and common functions
+require_once 'config.php'; // Database configuration and common function
 
 // Initialize response array
 $response = [
