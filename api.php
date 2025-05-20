@@ -1,7 +1,21 @@
 <?php
-// Force HTTPS and set headers first
-if (empty($_SERVER['HTTPS'])) {
-    header('Location: https://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'], true, 301);
+header("Content-Type: application/json");
+require_once 'config.php'; // Database configuration and common functions
+
+// Initialize response array
+$response = [
+    'status' => 'error',
+    'message' => 'Invalid request',
+    'timestamp' => time()
+];
+
+// Get the request data
+$requestData = json_decode(file_get_contents('php://input'), true);
+
+// Validate JSON input
+if (json_last_error() !== JSON_ERROR_NONE) {
+    $response['message'] = 'Invalid JSON input';
+    echo json_encode($response);
     exit;
 }
 
