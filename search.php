@@ -5,7 +5,7 @@
 </head>
 
 <?php
-//include 'header.php';
+include 'header.php';
 ?>
 <body>
     <div class="search-bar">
@@ -20,7 +20,7 @@
 </body>
 
 <?php
-//include 'footer.php';
+include 'footer.php';
 ?>
 </html>
 
