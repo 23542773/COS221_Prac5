@@ -6,15 +6,18 @@ $username = $isLoggedIn ? $_SESSION['username'] : ''; // Get the username if log
 ?>
 
 <style>
-    header {
+  header {
+    position: fixed;
+    width: 100vw;
     display: flex;
-    justify-content: center; /* center children horizontally */
-    align-items: center; /* vertically center */
-    background-color: #ffffff;
+    justify-content: center;
+    align-items: center;
+    background-color: #747578;
     padding: 1rem 2rem;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 5px #132A13;
   }
-  header > div {
+
+  header>div {
     font-weight: 700;
     font-size: 1.4rem;
     color: #222;
@@ -24,6 +27,7 @@ $username = $isLoggedIn ? $_SESSION['username'] : ''; // Get the username if log
     align-items: center;
     gap: 0.5rem;
   }
+
   nav ul {
     display: flex;
     list-style: none;
@@ -31,22 +35,26 @@ $username = $isLoggedIn ? $_SESSION['username'] : ''; // Get the username if log
     margin: 0;
     gap: 2rem;
   }
-    nav ul li {
+
+  nav ul li {
     cursor: pointer;
     font-weight: 500;
-    color: #555;
+    color: #262626;
     position: relative;
     padding: 0.25rem 0;
     transition: color 0.3s ease;
   }
+
   nav ul li:hover {
     color: #007bff;
   }
-  .logo{
+
+  .logo {
     max-height: 40px;
     object-fit: contain;
   }
-    #logop{
+
+  #logop {
     margin: 0;
     font-weight: 600;
     font-size: 1.2rem;
@@ -54,22 +62,23 @@ $username = $isLoggedIn ? $_SESSION['username'] : ''; // Get the username if log
     user-select: none;
   }
 </style>
+
 <header>
-    <div>
-        <img class="logo" src="img/logo.png">
-        <p id="logop">Chief Kompare</p>
-    </div>
-    <nav>
-        <ul>
-            <li>Search</li>
-            <li>Top Rated</li>
-            <li>Cart</li>
-            <?php if ($isLoggedIn): ?>
-                <li>Logout</li>
-                <li><?php echo htmlspecialchars($username); ?></li>
-            <?php else: ?>
-                <li>Login</li>
-            <?php endif; ?>
-        </ul>
-    </nav>
+  <div>
+    <img class="logo" src="img/logo.png">
+    <p id="logop">Chief Kompare</p>
+  </div>
+  <nav>
+    <ul>
+      <li>Search</li>
+      <li>Top Rated</li>
+      <li>Cart</li>
+      <?php if ($isLoggedIn): ?>
+        <li>Logout</li>
+        <li><?php echo htmlspecialchars($username); ?></li>
+      <?php else: ?>
+        <li>Login</li>
+      <?php endif; ?>
+    </ul>
+  </nav>
 </header>

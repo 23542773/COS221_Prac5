@@ -4,7 +4,7 @@
     justify-content: center; /* center horizontally */
     align-items: center; /* center vertically */
     height: 60px;
-    background-color: #222;
+    background-color: #262626;
     color: #eee;
     font-weight: 600;
     font-size: 1rem;
