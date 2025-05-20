@@ -1,67 +1,136 @@
-.page {
-  width: 100vw;
+* {
+  box-sizing: border-box;
+}
+
+
+body {
+  background-color: #fcfaf9;
+  color: #262626;
   height: 100vh;
-  background: linear-gradient(#fcfaf9 20%, #2edf84);
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/*login*/
+#loginForm{
+  display: none;
+}
+
+#signupForm{
+  display: none;
+}
+
+main {
+  height: 90%;
+  padding: 2rem 3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: 1.5rem;
+}
+
+.page{
+  border-radius: 12px;
+  padding: 2rem 3rem;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+  width: 360px;
 }
 
 .userBox {
-  margin-top: 25vh;
-  height: fit-content;
-    border-radius: 15px 15px 15px 15px;
-  box-shadow: 2px 4px 10px black;
-}
-
-.options {
+  width: 100%;
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+.options {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
 }
 
 .dropdownButton {
-  margin: 0;
-  padding: 1vh 0;
-  width: 30vw;
-  border: 1px solid #132a13;
-  background-color: #fcfaf9;
-  display: inline-flex;
-  justify-content: center;
-  font-size: 2em;
-}
-
-.dropdownButton:hover {
   background-color: #2edf84;
+  cursor: pointer;
+  color: white;
+  padding: 0.5rem 1.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 25px;
+  user-select: none;
+  box-shadow: 0 4px 10px #2edf84;
+  text-align: center;
+  flex-grow: 1;
+  max-width: 130px;
 }
-
-#loginButton {
-  border-radius: 15px 0 0 0;
-}
-
-#signupButton {
-  border-radius: 0 15px 0 0;
+.dropdownButton:hover {
+  background-color: #132A13;
 }
 
 form {
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  width: calc(60vw + 2px);
-  padding-top: 2vh;
-  padding-bottom: 2vh;
-  background-color: #fcfaf9;
-  border: 1px solid #132a13;
-  border-radius: 0 0 15px 15px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
 }
 
 .form-group {
-  margin: 1vh 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
-p {
-  font-size: 0.8em;
+label {
+  font-weight: 600;
+  color: #333;
+  user-select: none;
 }
 
-button {
-    margin-top: 2vh;
-    width: 30vw;
-    font-family: monospace;
+input {
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  border-radius: 6px;
+  border: 1.8px solid #ccc;
+  transition: border-color 0.3s ease;
+}
+
+input:focus {
+  border-color: #747578;
+  outline: none;
+  box-shadow: 0 0 6px #132a13;
+}
+
+.error-message {
+  color: #d93025;
+  font-size: 0.85rem;
+  min-height: 18px;
+  user-select: none;
+}
+button[type="submit"] {
+  margin-top: 0.5rem;
+  cursor: pointer;
+  background-color: #2edf84;
+  border: none;
+  border-radius: 25px;
+  color: white;
+  font-size: 1.1rem;
+  padding: 0.6rem 0;
+  font-weight: 700;
+  box-shadow: 0 5px 15px #132A13;
+  transition: background-color 0.3s ease;
+  user-select: none;
+}
+
+button[type="submit"]:hover {
+  background-color: #132A13;
+}
+
+button{
+  background-color: #2edf84;
 }

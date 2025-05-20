@@ -7,18 +7,22 @@ const loginForm = document.getElementById('loginForm');
 loginButton.addEventListener('click', function () {
     // revert signup
     signupForm.style.display = 'none';
-    signupButton.style.backgroundColor = '#fcfaf9';
+    signupButton.style.backgroundColor = '#2edf84';
+    signupButton.style.boxShadow = ' 0 4px 10px #2edf84';
     // login actions
     loginForm.style.display = 'flex';
-    loginButton.style.backgroundColor = '#2edf84';
+    loginButton.style.backgroundColor = '#262626';
+    loginButton.style.boxShadow = '0px 0px 0px';
 });
 
 signupButton.addEventListener('click', function () {
     // revert login
     loginForm.style.display = 'none';
-    loginButton.style.backgroundColor = '#fcfaf9';
+    loginButton.style.backgroundColor = '#2edf84';
+    loginButton.style.boxShadow = ' 0 4px 10px #2edf84';
     // signup actions
     signupForm.style.display = 'flex';
-    signupButton.style.backgroundColor = '#2edf84';
+    signupButton.style.backgroundColor = '#262626';
+    signupButton.style.boxShadow = '0px 0px 0px';
 });
 

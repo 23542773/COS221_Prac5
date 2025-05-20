@@ -8,6 +8,7 @@
     color: #eee;
     font-weight: 600;
     font-size: 1rem;
+    width: 100%;
   }
   footer p {
     margin: 0;
