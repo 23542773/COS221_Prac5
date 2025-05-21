@@ -1,0 +1,70 @@
+Task6_requirements
+
+
+Comprehensive Filtering:
+
+Supports filters for category, brand, price range, retailers, and minimum rating
+
+Uses HAVING clause for aggregate filters (e.g., average rating)
+
+Accepts array values for multi-select filters
+
+
+
+Advanced Search:
+
+Full-text search across product name and description
+
+Uses parameterized LIKE queries with wildcards
+
+
+Price Comparison:
+
+Aggregates prices from multiple retailers
+
+Returns sorted price list with retailer information
+
+Shows minimum/maximum prices through array manipulation
+
+
+Dynamic Sorting:
+
+Supports complex sorting by calculated fields (price, rating, popularity)
+
+Validates sort fields to prevent SQL injection
+
+
+Pagination:
+
+Implements limit/offset pagination with parameter binding
+
+Defaults to 50 items per page with safe upper limits
+
+
+Security:
+
+Uses PDO prepared statements for all parameters
+
+Strict input validation and parameter binding
+
+Prevents SQL injection through proper query construction
+
+
+
+Data Relationships:
+
+Joins products with prices and reviews tables
+
+Calculates aggregate values (average rating, product count)
+
+Handles NULL values from left joins appropriately
+
+
+
+Response Formatting:
+
+Processes database results into structured JSON
+
+Converts comma-separated values to arrays
+
+Rounds numerical values for better presentation
