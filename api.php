@@ -83,6 +83,9 @@ class API {
                 case 'register':
                     $this->handleRegistration($data);
                     break;
+                case 'logout':
+                    $this->handleLogout($data);
+                    break;
                 case 'GetAllProducts':
                     $this->handleGetAllProducts($data);
                     break;
@@ -104,18 +107,65 @@ class API {
     }
 
     private function handleLogin($data) {
-        if (!isset($data['Email']) || !isset($data['Password'])) {
-            throw new Exception("Email and Password are required", 400);
-        }
-        
-        // TODO: Implement authentication logic
-        
-        $this->sendSuccess([
-            'message' => 'Login successful',
-            'apikey' => $this->generateApiKey(),
-            'isAdmin' => false
-        ]);
+    if (!isset($data['Email']) || !isset($data['Password'])) {
+        throw new Exception("Email and Password are required", 400);
     }
+
+    $email = trim($data['Email']);
+    $password = $data['Password'];
+
+    $stmt = $this->db->prepare("SELECT * FROM users WHERE Email = ?");
+    if (!$stmt) {
+        throw new Exception("Database error: " . $this->db->error, 500);
+    }
+    $stmt->execute([$email]);
+    $user = $stmt->get_result()->fetch_assoc();
+
+    if (!$user) {
+        throw new Exception("Invalid email or password", 401);
+    }
+
+    $hashedPassword = hash('sha256', $password . $user['Salt']);
+    if ($hashedPassword !== $user['Password']) {
+        throw new Exception("Invalid email or password", 401);
+    }
+
+    // Check if user is an admin
+    $adminStmt = $this->db->prepare("SELECT * FROM admin WHERE `Key` = ?");
+    $adminStmt->execute([$user['API_Key']]);
+    $isAdmin = $adminStmt->get_result()->num_rows > 0;
+
+    $this->sendSuccess([
+        'message' => 'Login successful',
+        'apikey' => $user['API_Key'],
+        'isAdmin' => $isAdmin
+    ]);
+}
+
+    private function handleLogout($data) {
+    if (!isset($data['apikey'])) {
+        throw new Exception("API key is required", 400);
+    }
+
+    $apiKey = $data['apikey'];
+
+    $stmt = $this->db->prepare("SELECT API_Key FROM users WHERE API_Key = ?");
+    if (!$stmt) {
+        throw new Exception("Database error: " . $this->db->error, 500);
+    }
+    $stmt->execute([$apiKey]);
+    $result = $stmt->get_result();
+
+    if ($result->num_rows === 0) {
+        throw new Exception("Invalid API key", 401);
+    }
+
+    // Optionally: log the logout action or invalidate the session/token
+
+    $this->sendSuccess([
+        'message' => 'Logout successful'
+    ]);
+}
 
     private function handleRegistration($data) {
         $required = ['Name', 'Surname', 'Email', 'Password'];
