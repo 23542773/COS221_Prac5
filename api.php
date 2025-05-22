@@ -19,283 +19,311 @@ if (json_last_error() !== JSON_ERROR_NONE) {
     exit;
 }
 
-// Check if API parameter is present
-if (!isset($requestData['api'])) {
-    $response['message'] = 'API parameter missing';
-    echo json_encode($response);
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST');
+header('Access-Control-Allow-Headers: Content-Type');
+
+// Verify this is a POST request
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode([
+        'status' => 'error',
+        'timestamp' => round(microtime(true) * 1000),
+        'data' => 'Only POST requests are allowed'
+    ]);
     exit;
 }
 
-// Route the API request
-switch ($requestData['api']) {
-    case 'login':
-        handleLogin($requestData);
-        break;
-        
-    case 'register':
-        handleRegister($requestData);
-        break;
-        
-    case 'GetAllProducts':
-        handleGetAllProducts($requestData);
-        break;
-        
-    case 'GetAllRetailers':
-        handleGetAllRetailers($requestData);
-        break;
-        
-    case 'GetDistinct':
-        handleGetDistinct($requestData);
-        break;
-        
-    case 'rating':
-        handleRating($requestData);
-        break;
-        
-    // Add other API cases here
-        
-    default:
-        $response['message'] = 'Unknown API endpoint';
-        echo json_encode($response);
-        break;
-}
+// Load config
+require_once 'config.php';
 
-// API Handler Functions
-
-function handleLogin($data) {
-    global $response;
+class API {
+    private static $instance = null;
+    private $db;
     
-    // Validate required parameters
-    if (!isset($data['Email']) || !isset($data['Password'])) {
-        $response['message'] = 'Email and Password are required';
-        echo json_encode($response);
-        return;
-    }
-    
-    // TODO: Implement authentication logic
-    // Verify email and password against database
-    
-    // On successful authentication
-    $response['status'] = 'success';
-    $response['message'] = 'Login successful';
-    $response['apikey'] = generateApiKey(); // Implement this function
-    $response['isAdmin'] = false; // Set based on user role
-    
-    echo json_encode($response);
-}
-
-function handleRegister($data) {
-    global $response;
-    
-    // Validate required parameters
-    $requiredFields = ['Name', 'Surname', 'Email', 'password', 'User_type'];
-    foreach ($requiredFields as $field) {
-        if (!isset($data[$field])) {
-            $response['message'] = "Missing required field: $field";
-            echo json_encode($response);
-            return;
+    private function __construct() {
+        $config = DBConfig::getInstance();
+        $this->db = $config->getConnection();
+        
+        if (!$this->db) {
+            throw new Exception("Database connection failed");
         }
     }
     
-    // Validate email format
-    if (!filter_var($data['Email'], FILTER_VALIDATE_EMAIL)) {
-        $response['message'] = 'Invalid email format';
-        echo json_encode($response);
-        return;
-    }
+    public static function getInstance() {
+        if (self::$instance === null) {
+            self::$instance = new API();
+        }
+        return self::$instance;
+    } 
     
-    // Validate password complexity
-    if (!validatePassword($data['password'])) {
-        $response['message'] = 'Password must be at least 8 characters with upper/lower case and special character';
-        echo json_encode($response);
-        return;
-    }
-    
-    // Validate user type
-    $validUserTypes = ['Admin', 'Customer'];
-    if (!in_array($data['User_type'], $validUserTypes)) {
-        $response['message'] = 'Invalid User_type';
-        echo json_encode($response);
-        return;
-    }
-    
-    // TODO: Check if email already exists
-    
-    // TODO: Create user in database
-    
-    $response['status'] = 'success';
-    $response['message'] = 'Registration successful';
-    $response['data'] = [
-        'apikey' => generateApiKey() // Implement this function
-    ];
-    
-    echo json_encode($response);
-}
-
-function handleGetAllProducts($data) {
-    global $response;
-    
-    // Validate API key
-    if (!validateApiKey($data['api'])) {
-        $response['message'] = 'Invalid API key';
-        echo json_encode($response);
-        return;
-    }
-    
-    // Build query based on parameters
-    $query = "SELECT * FROM products WHERE 1=1";
-    
-    // Handle search parameters
-    if (isset($data['search']) && is_array($data['search'])) {
-        // TODO: Add search conditions to query
-    }
-    
-    // Handle limit
-    $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 800) : 50;
-    $query .= " LIMIT $limit";
-    
-    // Handle sort and order
-    if (isset($data['sort'])) {
-        $validSortFields = ['category', 'price', 'brand', 'country_of_origin'];
-        if (in_array($data['sort'], $validSortFields)) {
-            $order = isset($data['order']) && strtoupper($data['order']) === 'DESC' ? 'DESC' : 'ASC';
-            $query .= " ORDER BY {$data['sort']} $order";
+    public function handleRequest() {
+        try {
+            $json = file_get_contents('php://input');
+            
+            if (empty($json)) {
+                throw new Exception("No input data received", 400);
+            }
+            
+            $data = json_decode($json, true);
+            
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new Exception("Invalid JSON input: " . json_last_error_msg(), 400);
+            }
+            
+            if (!isset($data['api'])) {
+                throw new Exception("API parameter is required", 400);
+            }
+            
+            switch ($data['api']) {
+                case 'login':
+                    $this->handleLogin($data);
+                    break;
+                case 'register':
+                    $this->handleRegistration($data);
+                    break;
+                case 'GetAllProducts':
+                    $this->handleGetAllProducts($data);
+                    break;
+                case 'GetAllRetailers':
+                    $this->handleGetAllRetailers($data);
+                    break;
+                case 'GetDistinct':
+                    $this->handleGetDistinct($data);
+                    break;
+                case 'rating':
+                    $this->handleRating($data);
+                    break;
+                default:
+                    throw new Exception("Unknown API endpoint", 400);
+            }
+        } catch (Exception $e) {
+            $this->sendError($e->getMessage(), $e->getCode() ?: 500);
         }
     }
-    
-    // TODO: Execute query and fetch results
-    
-    $response['status'] = 'success';
-    $response['data'] = []; // Populate with actual data
-    
-    echo json_encode($response);
-}
 
-function handleGetAllRetailers($data) {
-    global $response;
-    
-    // Validate API key
-    if (!validateApiKey($data['api'])) {
-        $response['message'] = 'Invalid API key';
-        echo json_encode($response);
-        return;
+    private function handleLogin($data) {
+        if (!isset($data['Email']) || !isset($data['Password'])) {
+            throw new Exception("Email and Password are required", 400);
+        }
+        
+        // TODO: Implement authentication logic
+        
+        $this->sendSuccess([
+            'message' => 'Login successful',
+            'apikey' => $this->generateApiKey(),
+            'isAdmin' => false
+        ]);
+    }
+
+    private function handleRegistration($data) {
+        $required = ['Name', 'Surname', 'Email', 'Password','phoneNumber'];
+        foreach ($required as $field) {
+            if (empty($data[$field])) {
+                throw new Exception("$field is required", 400);
+            }
+        }
+        
+        if (!filter_var($data['Email'], FILTER_VALIDATE_EMAIL)) {
+            throw new Exception("Invalid email format", 400);
+        }
+        
+        if (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\d\s:])([^\s]){8,}$/', $data['Password'])) {
+            throw new Exception("Password must be 8+ chars with uppercase, lowercase, number, and special character", 400);
+        }
+        
+        $stmt = $this->db->prepare("SELECT id FROM users WHERE Email = ?");
+        if (!$stmt) {
+            throw new Exception("Database error", 500);
+        }
+        
+        $stmt->execute([$data['Email']]);
+        if ($stmt->fetch()) {
+            throw new Exception("Email already registered", 409);
+        }
+
+        $stmt = $this->db->prepare("SELECT id FROM users WHERE Phone_Number = ?");
+        if (!$stmt) {
+        throw new Exception("Database error", 500);
+        }
+        $stmt->execute([$data['phoneNumber']]);
+        if ($stmt->fetch()) {
+        throw new Exception("Phone number already registered", 409);
+        }
+        
+        $salt = bin2hex(random_bytes(16));
+        $hashedPassword = hash('sha256', $data['Password'] . $salt);
+        $apiKey = $this->generateApiKey();
+        $fullName = $data['Name'] . ' ' . $data['Surname'];
+        $phoneNumber = !empty($data['Phone_Number']) ? $data['Phone_Number'] : null;
+        
+        $stmt = $this->db->prepare("INSERT INTO users (API_Key, Name,Surname, Password, Salt, Email, Phone_Number) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        if (!$stmt) {
+            throw new Exception("Database preparation failed", 500);
+        }
+        
+        $success = $stmt->execute([
+            $apiKey,
+            $data['Name'],
+            $data['Surname'],
+            $hashedPassword,
+            $salt,
+            $data['Email'],
+            $phoneNumber
+        ]);
+        
+        if (!$success) {
+            throw new Exception("Failed to register user", 500);
+        }
+        
+        $this->sendSuccess(['apikey' => $apiKey]);
+    }
+
+    private function handleGetAllProducts($data) {
+        if (!$this->validateApiKey($data['api'])) {
+            throw new Exception("Invalid API key", 401);
+        }
+        
+        $query = "SELECT * FROM products WHERE 1=1";
+        
+        if (isset($data['search']) && is_array($data['search'])) {
+            // TODO: Add search conditions
+        }
+        
+        $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 800) : 50;
+        $query .= " LIMIT $limit";
+        
+        if (isset($data['sort'])) {
+            $validSortFields = ['category', 'price', 'brand', 'country_of_origin'];
+            if (in_array($data['sort'], $validSortFields)) {
+                $order = isset($data['order']) && strtoupper($data['order']) === 'DESC' ? 'DESC' : 'ASC';
+                $query .= " ORDER BY {$data['sort']} $order";
+            }
+        }
+        
+        // TODO: Execute query
+        
+        $this->sendSuccess([]);
+    }
+
+    private function handleGetAllRetailers($data) {
+    if (!$this->validateApiKey($data['api'])) {
+        throw new Exception("Invalid API key", 401);
     }
     
     if (!isset($data['type']) || $data['type'] !== 'GetAllRetailers') {
-        $response['message'] = 'Invalid type parameter';
-        echo json_encode($response);
-        return;
+        throw new Exception("Invalid type parameter", 400);
     }
     
-    // Handle limit
+    // Set default limit to 10, with bounds between 1 and 20
     $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 20) : 10;
     
-    // TODO: Fetch retailers from database
-    
-    $response['status'] = 'success';
-    $response['data'] = []; // Populate with retailer data
-    
-    echo json_encode($response);
-}
-
-function handleGetDistinct($data) {
-    global $response;
-    
-    // Validate API key
-    if (!validateApiKey($data['api'])) {
-        $response['message'] = 'Invalid API key';
-        echo json_encode($response);
-        return;
-    }
-    
-    if (!isset($data['type']) || $data['type'] !== 'GetDistinct') {
-        $response['message'] = 'Invalid type parameter';
-        echo json_encode($response);
-        return;
-    }
-    
-    if (!isset($data['field'])) {
-        $response['message'] = 'Field parameter is required';
-        echo json_encode($response);
-        return;
-    }
-    
-    $validFields = ['brand', 'categories', 'manufacturer', 'department', 'country_of_origin'];
-    if (!in_array($data['field'], $validFields)) {
-        $response['message'] = 'Invalid field parameter';
-        echo json_encode($response);
-        return;
-    }
-    
-    // Handle limit
-    $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 20) : 10;
-    
-    // TODO: Fetch distinct values for the specified field
-    
-    $response['status'] = 'success';
-    $response['data'] = []; // Populate with distinct values
-    
-    echo json_encode($response);
-}
-
-function handleRating($data) {
-    global $response;
-    
-    // Validate API key
-    if (!validateApiKey($data['api'])) {
-        $response['message'] = 'Invalid API key';
-        echo json_encode($response);
-        return;
-    }
-    
-    if (!isset($data['operation'])) {
-        $response['message'] = 'Operation parameter is required';
-        echo json_encode($response);
-        return;
-    }
-    
-    if ($data['operation'] === 'set') {
-        if (!isset($data['review'])) {
-            $response['message'] = 'Review parameter is required for set operation';
-            echo json_encode($response);
-            return;
+    try {
+        // Prepare and execute the query
+        $stmt = $this->db->prepare("SELECT RetailerID, Name, URL FROM retailers LIMIT :limit");
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        
+        // Fetch all results
+        $retailers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Format URLs to include https:// if not present
+        foreach ($retailers as &$retailer) {
+            if (!empty($retailer['URL']) && !preg_match('/^https?:\/\//i', $retailer['URL'])) {
+                $retailer['URL'] = 'https://' . $retailer['URL'];
+            }
         }
         
-        $review = (int)$data['review'];
-        if ($review < 1 || $review > 5) {
-            $response['message'] = 'Review must be between 1 and 5';
-            echo json_encode($response);
-            return;
+        $this->sendSuccess($retailers);
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
+
+    private function handleGetDistinct($data) {
+        if (!$this->validateApiKey($data['api'])) {
+            throw new Exception("Invalid API key", 401);
         }
         
-        // TODO: Save review to database
-    } elseif ($data['operation'] === 'get') {
-        // TODO: Retrieve reviews from database
-    } else {
-        $response['message'] = 'Invalid operation';
-        echo json_encode($response);
-        return;
+        if (!isset($data['type']) || $data['type'] !== 'GetDistinct') {
+            throw new Exception("Invalid type parameter", 400);
+        }
+        
+        if (!isset($data['field'])) {
+            throw new Exception("Field parameter is required", 400);
+        }
+        
+        $validFields = ['brand', 'categories', 'manufacturer', 'department', 'country_of_origin'];
+        if (!in_array($data['field'], $validFields)) {
+            throw new Exception("Invalid field parameter", 400);
+        }
+        
+        $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 20) : 10;
+        
+        // TODO: Fetch distinct values
+        
+        $this->sendSuccess([]);
+    }
+
+    private function handleRating($data) {
+        if (!$this->validateApiKey($data['api'])) {
+            throw new Exception("Invalid API key", 401);
+        }
+        
+        if (!isset($data['operation'])) {
+            throw new Exception("Operation parameter is required", 400);
+        }
+        
+        if ($data['operation'] === 'set') {
+            if (!isset($data['review'])) {
+                throw new Exception("Review parameter is required for set operation", 400);
+            }
+            
+            $review = (int)$data['review'];
+            if ($review < 1 || $review > 5) {
+                throw new Exception("Review must be between 1 and 5", 400);
+            }
+            
+            // TODO: Save review
+        } elseif ($data['operation'] === 'get') {
+            // TODO: Retrieve reviews
+        } else {
+            throw new Exception("Invalid operation", 400);
+        }
+        
+        $this->sendSuccess(['message' => 'Operation completed']);
+    }
+
+    private function generateApiKey() {
+        return bin2hex(random_bytes(16));
+    }
+
+    private function validateApiKey($apiKey) {
+        // TODO: Implement API key validation
+        return true;
+    }
+
+    private function sendSuccess($data) {
+        echo json_encode([
+            'status' => 'success',
+            'timestamp' => round(microtime(true) * 1000),
+            'data' => $data
+        ]);
+        exit;
     }
     
-    $response['status'] = 'success';
-    $response['message'] = 'Operation completed';
-    
-    echo json_encode($response);
+    private function sendError($message, $code = 400) {
+        http_response_code($code);
+        echo json_encode([
+            'status' => 'error',
+            'timestamp' => round(microtime(true) * 1000),
+            'data' => $message
+        ]);
+        exit;
+    }
 }
 
-// Helper functions
-
-function generateApiKey() {
-    return bin2hex(random_bytes(16));
-}
-
-function validatePassword($password) {
-    // At least 8 characters, upper and lower case, and a special character
-    return preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\da-zA-Z]).{8,}$/', $password);
-}
-
-function validateApiKey($apiKey) {
-    // TODO: Implement API key validation against database
-    return true; // Placeholder
-}
-?>
+// Handle the request
+$api = API::getInstance();
+$api->handleRequest();
