@@ -140,7 +140,9 @@ class API {
 
         $response = [
             'message' => 'Login successful',
-            'apikey' => $user['API_Key']
+            'apikey' => $user['API_Key'],
+            'Name'=> $data['Name'],
+            'Surname' => $data['Surname']
         ];
 
         // Add admin privilege if user is admin
