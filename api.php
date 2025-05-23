@@ -115,7 +115,8 @@ class API {
     $password = $data['Password'];
 
     try {
-        $stmt = $this->db->prepare("SELECT * FROM users WHERE Email = ?");
+        // Get user credentials
+        $stmt = $this->db->prepare("SELECT API_Key, Password, Salt FROM users WHERE Email = ?");
         if (!$stmt) {
             throw new Exception("Database preparation failed", 500);
         }
@@ -126,22 +127,28 @@ class API {
             throw new Exception("Invalid email or password", 401);
         }
 
+        // Verify password
         $hashedPassword = hash('sha256', $password . $user['Salt']);
         if ($hashedPassword !== $user['Password']) {
             throw new Exception("Invalid email or password", 401);
         }
 
-        // Check if user is an admin
-        $adminStmt = $this->db->prepare("SELECT COUNT(*) as count FROM admin WHERE `Key` = ?");
+        // Check admin privileges
+        $adminStmt = $this->db->prepare("SELECT Privilege FROM admin WHERE `K` = ?");
         $adminStmt->execute([$user['API_Key']]);
         $adminResult = $adminStmt->fetch();
-        $isAdmin = $adminResult['count'] > 0;
 
-        $this->sendSuccess([
+        $response = [
             'message' => 'Login successful',
-            'apikey' => $user['API_Key'],
-            'isAdmin' => $isAdmin
-        ]);
+            'apikey' => $user['API_Key']
+        ];
+
+        // Add admin privilege if user is admin
+        if ($adminResult) {
+            $response['privilege'] = $adminResult['Privilege'];
+        }
+
+        $this->sendSuccess($response);
     } catch (PDOException $e) {
         throw new Exception("Database error: " . $e->getMessage(), 500);
     }
@@ -155,11 +162,11 @@ class API {
     $apiKey = $data['apikey'];
 
     try {
-        $stmt = $this->db->prepare("SELECT COUNT(*) as count FROM users WHERE API_Key = ?");
+        // Verify API key exists
+        $stmt = $this->db->prepare("SELECT 1 FROM users WHERE API_Key = ?");
         $stmt->execute([$apiKey]);
-        $result = $stmt->fetch();
-
-        if ($result['count'] === 0) {
+        
+        if (!$stmt->fetch()) {
             throw new Exception("Invalid API key", 401);
         }
 
