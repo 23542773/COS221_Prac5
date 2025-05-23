@@ -114,32 +114,37 @@ class API {
     $email = trim($data['Email']);
     $password = $data['Password'];
 
-    $stmt = $this->db->prepare("SELECT * FROM users WHERE Email = ?");
-    if (!$stmt) {
-        throw new Exception("Database error: " . $this->db->error, 500);
+    try {
+        $stmt = $this->db->prepare("SELECT * FROM users WHERE Email = ?");
+        if (!$stmt) {
+            throw new Exception("Database preparation failed", 500);
+        }
+        $stmt->execute([$email]);
+        $user = $stmt->fetch();
+
+        if (!$user) {
+            throw new Exception("Invalid email or password", 401);
+        }
+
+        $hashedPassword = hash('sha256', $password . $user['Salt']);
+        if ($hashedPassword !== $user['Password']) {
+            throw new Exception("Invalid email or password", 401);
+        }
+
+        // Check if user is an admin
+        $adminStmt = $this->db->prepare("SELECT COUNT(*) as count FROM admin WHERE `Key` = ?");
+        $adminStmt->execute([$user['API_Key']]);
+        $adminResult = $adminStmt->fetch();
+        $isAdmin = $adminResult['count'] > 0;
+
+        $this->sendSuccess([
+            'message' => 'Login successful',
+            'apikey' => $user['API_Key'],
+            'isAdmin' => $isAdmin
+        ]);
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
     }
-    $stmt->execute([$email]);
-    $user = $stmt->get_result()->fetch_assoc();
-
-    if (!$user) {
-        throw new Exception("Invalid email or password", 401);
-    }
-
-    $hashedPassword = hash('sha256', $password . $user['Salt']);
-    if ($hashedPassword !== $user['Password']) {
-        throw new Exception("Invalid email or password", 401);
-    }
-
-    // Check if user is an admin
-    $adminStmt = $this->db->prepare("SELECT * FROM admin WHERE `Key` = ?");
-    $adminStmt->execute([$user['API_Key']]);
-    $isAdmin = $adminStmt->get_result()->num_rows > 0;
-
-    $this->sendSuccess([
-        'message' => 'Login successful',
-        'apikey' => $user['API_Key'],
-        'isAdmin' => $isAdmin
-    ]);
 }
 
     private function handleLogout($data) {
@@ -149,70 +154,60 @@ class API {
 
     $apiKey = $data['apikey'];
 
-    $stmt = $this->db->prepare("SELECT API_Key FROM users WHERE API_Key = ?");
-    if (!$stmt) {
-        throw new Exception("Database error: " . $this->db->error, 500);
+    try {
+        $stmt = $this->db->prepare("SELECT COUNT(*) as count FROM users WHERE API_Key = ?");
+        $stmt->execute([$apiKey]);
+        $result = $stmt->fetch();
+
+        if ($result['count'] === 0) {
+            throw new Exception("Invalid API key", 401);
+        }
+
+        $this->sendSuccess([
+            'message' => 'Logout successful'
+        ]);
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
     }
-    $stmt->execute([$apiKey]);
-    $result = $stmt->get_result();
-
-    if ($result->num_rows === 0) {
-        throw new Exception("Invalid API key", 401);
-    }
-
-    // Optionally: log the logout action or invalidate the session/token
-
-    $this->sendSuccess([
-        'message' => 'Logout successful'
-    ]);
 }
 
     private function handleRegistration($data) {
-        $required = ['Name', 'Surname', 'Email', 'Password','phoneNumber'];
-        foreach ($required as $field) {
-            if (empty($data[$field])) {
-                throw new Exception("$field is required", 400);
-            }
+    $required = ['Name', 'Surname', 'Email', 'Password', 'phoneNumber'];
+    foreach ($required as $field) {
+        if (empty($data[$field])) {
+            throw new Exception("$field is required", 400);
         }
-        
-        if (!filter_var($data['Email'], FILTER_VALIDATE_EMAIL)) {
-            throw new Exception("Invalid email format", 400);
-        }
-        
-        if (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\d\s:])([^\s]){8,}$/', $data['Password'])) {
-            throw new Exception("Password must be 8+ chars with uppercase, lowercase, number, and special character", 400);
-        }
-        
+    }
+    
+    if (!filter_var($data['Email'], FILTER_VALIDATE_EMAIL)) {
+        throw new Exception("Invalid email format", 400);
+    }
+    
+    if (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\d\s:])([^\s]){8,}$/', $data['Password'])) {
+        throw new Exception("Password must be 8+ chars with uppercase, lowercase, number, and special character", 400);
+    }
+    
+    try {
+        // Check if email exists
         $stmt = $this->db->prepare("SELECT id FROM users WHERE Email = ?");
-        if (!$stmt) {
-            throw new Exception("Database error", 500);
-        }
-        
         $stmt->execute([$data['Email']]);
         if ($stmt->fetch()) {
             throw new Exception("Email already registered", 409);
         }
 
+        // Check if phone number exists
         $stmt = $this->db->prepare("SELECT id FROM users WHERE Phone_Number = ?");
-        if (!$stmt) {
-        throw new Exception("Database error", 500);
-        }
         $stmt->execute([$data['phoneNumber']]);
         if ($stmt->fetch()) {
-        throw new Exception("Phone number already registered", 409);
+            throw new Exception("Phone number already registered", 409);
         }
         
         $salt = bin2hex(random_bytes(16));
         $hashedPassword = hash('sha256', $data['Password'] . $salt);
         $apiKey = $this->generateApiKey();
-        $fullName = $data['Name'] . ' ' . $data['Surname'];
         $phoneNumber = !empty($data['Phone_Number']) ? $data['Phone_Number'] : null;
         
-        $stmt = $this->db->prepare("INSERT INTO users (API_Key, Name,Surname, Password, Salt, Email, Phone_Number) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        if (!$stmt) {
-            throw new Exception("Database preparation failed", 500);
-        }
-        
+        $stmt = $this->db->prepare("INSERT INTO users (API_Key, Name, Surname, Password, Salt, Email, Phone_Number) VALUES (?, ?, ?, ?, ?, ?, ?)");
         $success = $stmt->execute([
             $apiKey,
             $data['Name'],
@@ -220,7 +215,7 @@ class API {
             $hashedPassword,
             $salt,
             $data['Email'],
-            $phoneNumber
+            $data['phoneNumber']
         ]);
         
         if (!$success) {
@@ -228,7 +223,10 @@ class API {
         }
         
         $this->sendSuccess(['apikey' => $apiKey]);
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
     }
+}
 
     private function handleGetAllProducts($data) {
         if (!$this->validateApiKey($data['api'])) {
