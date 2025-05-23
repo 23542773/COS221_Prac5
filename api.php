@@ -279,18 +279,22 @@ class API {
     }
 
     private function handleGetAllRetailers($data) {
-    if (!$this->validateApiKey($data['api'])) {
-        throw new Exception("Invalid API key", 401);
+    // Validate API key first
+    if (!isset($data['apikey'])) {
+        throw new Exception("API key is required", 400);
     }
-    
-    if (!isset($data['type']) || $data['type'] !== 'GetAllRetailers') {
-        throw new Exception("Invalid type parameter", 400);
-    }
-    
-    // Set default limit to 10, with bounds between 1 and 20
-    $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 20) : 10;
     
     try {
+        // Verify API key exists in database
+        $stmt = $this->db->prepare("SELECT 1 FROM users WHERE API_Key = ?");
+        $stmt->execute([$data['apikey']]);
+        if (!$stmt->fetch()) {
+            throw new Exception("Invalid API key", 401);
+        }
+
+        // Set default limit to 10, with bounds between 1 and 20
+        $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 20) : 10;
+        
         // Prepare and execute the query
         $stmt = $this->db->prepare("SELECT RetailerID, Name, URL FROM retailers LIMIT :limit");
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
