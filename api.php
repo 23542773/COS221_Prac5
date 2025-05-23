@@ -172,57 +172,73 @@ class API {
 }
 
     private function handleRegistration($data) {
+    // Define required fields
     $required = ['Name', 'Surname', 'Email', 'Password', 'phoneNumber'];
+    
+    // Validate required fields
     foreach ($required as $field) {
         if (empty($data[$field])) {
             throw new Exception("$field is required", 400);
         }
     }
     
-    if (!filter_var($data['Email'], FILTER_VALIDATE_EMAIL)) {
+    // Validate email format
+    $email = trim($data['Email']);
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         throw new Exception("Invalid email format", 400);
     }
     
+    // Validate password complexity
     if (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\d\s:])([^\s]){8,}$/', $data['Password'])) {
         throw new Exception("Password must be 8+ chars with uppercase, lowercase, number, and special character", 400);
     }
     
     try {
         // Check if email exists
-        $stmt = $this->db->prepare("SELECT id FROM users WHERE Email = ?");
-        $stmt->execute([$data['Email']]);
+        $stmt = $this->db->prepare("SELECT Email FROM users WHERE Email = ?");
+        $stmt->execute([$email]);
         if ($stmt->fetch()) {
             throw new Exception("Email already registered", 409);
         }
 
         // Check if phone number exists
-        $stmt = $this->db->prepare("SELECT id FROM users WHERE Phone_Number = ?");
-        $stmt->execute([$data['phoneNumber']]);
+        $phoneNumber = $data['phoneNumber'];
+        $stmt = $this->db->prepare("SELECT Phone_Number FROM users WHERE Phone_Number = ?");
+        $stmt->execute([$phoneNumber]);
         if ($stmt->fetch()) {
             throw new Exception("Phone number already registered", 409);
         }
         
+        // Generate secure credentials
         $salt = bin2hex(random_bytes(16));
         $hashedPassword = hash('sha256', $data['Password'] . $salt);
         $apiKey = $this->generateApiKey();
-        $phoneNumber = !empty($data['Phone_Number']) ? $data['Phone_Number'] : null;
         
-        $stmt = $this->db->prepare("INSERT INTO users (API_Key, Name, Surname, Password, Salt, Email, Phone_Number) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        // Insert new user
+        $stmt = $this->db->prepare("INSERT INTO users 
+            (API_Key, Name, Surname, Password, Salt, Email, Phone_Number) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)");
+            
         $success = $stmt->execute([
             $apiKey,
             $data['Name'],
             $data['Surname'],
             $hashedPassword,
             $salt,
-            $data['Email'],
-            $data['phoneNumber']
+            $email,
+            $phoneNumber
         ]);
         
         if (!$success) {
             throw new Exception("Failed to register user", 500);
         }
         
-        $this->sendSuccess(['apikey' => $apiKey]);
+        // Return success with API key
+        $this->sendSuccess([
+            'message' => 'Registration successful',
+            'apikey' => $apiKey
+        ]);
+        
     } catch (PDOException $e) {
         throw new Exception("Database error: " . $e->getMessage(), 500);
     }
