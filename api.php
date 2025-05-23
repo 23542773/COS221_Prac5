@@ -115,8 +115,8 @@ class API {
     $password = $data['Password'];
 
     try {
-        // Get user credentials
-        $stmt = $this->db->prepare("SELECT API_Key, Password, Salt FROM users WHERE Email = ?");
+        // Get user credentials - now including Name and Surname
+        $stmt = $this->db->prepare("SELECT API_Key, Password, Salt, Name, Surname FROM users WHERE Email = ?");
         if (!$stmt) {
             throw new Exception("Database preparation failed", 500);
         }
@@ -141,8 +141,8 @@ class API {
         $response = [
             'message' => 'Login successful',
             'apikey' => $user['API_Key'],
-            'Name'=> $data['Name'],
-            'Surname' => $data['Surname']
+            'name' => $user['Name'],    // Added name from database
+            'surname' => $user['Surname']  // Added surname from database
         ];
 
         // Add admin privilege if user is admin
