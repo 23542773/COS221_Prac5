@@ -1,6 +1,6 @@
 <?php
 header("Content-Type: application/json");
-require_once 'config.php'; // Database configuration and common functions
+require_once 'config_cos221.php'; // Database configuration and common functions
 
 // Initialize response array
 $response = [
@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // Load config
-require_once 'config.php';
+require_once 'config_cos221.php';
 
 class API {
     private static $instance = null;
