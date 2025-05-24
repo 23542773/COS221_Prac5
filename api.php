@@ -332,101 +332,91 @@ class API {
     }
 
     // Validate required parameters
-    if (!isset($data['table']) || !isset($data['field'])) {
-        throw new Exception("Table and field parameters are required", 400);
+    if (!isset($data['table'])) {
+        throw new Exception("Table parameter is required", 400);
     }
 
-    // Define valid tables and their allowed fields
-    $validTables = [
-        'products' => ['ProductID', 'Name', 'Brand', 'Category'],
-        'retailers' => ['RetailerID', 'Name'],
-        'productratings' => ['K', 'PID', 'Rating', 'Date'],
-        'listings' => ['ProductID', 'RID', 'quantity', 'price', 'remaining'],
-        'orders' => ['OrderID', 'K', 'OrderDate', 'Total']
+    // Define table structures with all columns to return
+    $tableStructures = [
+        'products' => [
+            'fields' => ['ProductID', 'Name', 'Brand', 'Category'],
+            'columns' => ['ProductID', 'Name', 'Description', 'Brand', 'Category', 'Thumbnail']
+        ],
+        'retailers' => [
+            'fields' => ['RetailerID', 'Name'],
+            'columns' => ['RetailerID', 'Name', 'URL']
+        ],
+        'productratings' => [
+            'fields' => ['K', 'PID', 'Rating', 'Date'],
+            'columns' => ['K', 'PID', 'Rating', 'Comment', 'Date']
+        ],
+        'listings' => [
+            'fields' => ['ProductID', 'RID', 'quantity', 'price', 'remaining'],
+            'columns' => ['ProductID', 'RID', 'quantity', 'price', 'remaining'],
+            'joins' => [
+                'products' => 'ProductID',
+                'retailers' => ['RID' => 'RetailerID']
+            ]
+        ],
+        'orders' => [
+            'fields' => ['OrderID', 'K', 'OrderDate', 'Total'],
+            'columns' => ['OrderID', 'K', 'OrderDate', 'Total'],
+            'joins' => [
+                'users' => ['K' => 'API_Key']
+            ]
+        ]
     ];
 
-    // Validate table and field
-    if (!array_key_exists($data['table'], $validTables)) {
+    // Validate table
+    if (!array_key_exists($data['table'], $tableStructures)) {
         throw new Exception("Invalid table specified", 400);
     }
 
-    if (!in_array($data['field'], $validTables[$data['table']])) {
-        throw new Exception("Invalid field for the specified table", 400);
-    }
+    $tableConfig = $tableStructures[$data['table']];
+    $columns = implode(', ', $tableConfig['columns']);
 
     // Set limit with bounds
     $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 50) : 10;
     
-    // Prepare base query
-    $query = "SELECT DISTINCT {$data['field']} FROM {$data['table']}";
+    // Base query - select all columns
+    $query = "SELECT $columns FROM {$data['table']}";
     $params = [];
 
-    // Add search condition if provided
-    if (!empty($data['search'])) {
+    // Handle joins if they exist
+    if (isset($tableConfig['joins'])) {
+        foreach ($tableConfig['joins'] as $joinTable => $joinConditions) {
+            if (is_array($joinConditions)) {
+                foreach ($joinConditions as $left => $right) {
+                    $query .= " JOIN $joinTable ON {$data['table']}.$left = $joinTable.$right";
+                }
+            } else {
+                $query .= " JOIN $joinTable ON {$data['table']}.$joinConditions = $joinTable.$joinConditions";
+            }
+        }
+    }
+
+    // Add search condition if field and search are provided
+    if (isset($data['field']) && isset($data['search'])) {
+        // Validate field
+        if (!in_array($data['field'], $tableConfig['fields'])) {
+            throw new Exception("Invalid field for the specified table", 400);
+        }
+
         $searchTerm = "%{$data['search']}%";
-        
-        // Special cases for different tables
-        if ($data['table'] === 'products' && $data['field'] === 'Name') {
-            $query = "SELECT * FROM products WHERE Name LIKE :search LIMIT :limit";
-            $params[':search'] = $searchTerm;
-        } 
-        elseif ($data['table'] === 'retailers' && $data['field'] === 'Name') {
-            $query = "SELECT * FROM retailers WHERE Name LIKE :search LIMIT :limit";
-            $params[':search'] = $searchTerm;
-        }
-        elseif ($data['table'] === 'listings') {
-            // For listings, we'll return full listing details when searching by ProductID or RID
-            if (in_array($data['field'], ['ProductID', 'RID'])) {
-                $query = "SELECT l.*, p.Name as ProductName, r.Name as RetailerName 
-                          FROM listings l
-                          JOIN products p ON l.ProductID = p.ProductID
-                          JOIN retailers r ON l.RID = r.RetailerID
-                          WHERE l.{$data['field']} LIKE :search
-                          LIMIT :limit";
-                $params[':search'] = $searchTerm;
-            } else {
-                $query .= " WHERE {$data['field']} LIKE :search";
-                $params[':search'] = $searchTerm;
-            }
-        }
-        elseif ($data['table'] === 'orders') {
-            // For orders, return full order details when searching by OrderID or K
-            if (in_array($data['field'], ['OrderID', 'K'])) {
-                $query = "SELECT o.*, u.Name as UserName, u.Surname as UserSurname 
-                          FROM orders o
-                          JOIN users u ON o.K = u.API_Key
-                          WHERE o.{$data['field']} LIKE :search
-                          LIMIT :limit";
-                $params[':search'] = $searchTerm;
-            } else {
-                $query .= " WHERE {$data['field']} LIKE :search";
-                $params[':search'] = $searchTerm;
-            }
-        }
-        else {
-            $query .= " WHERE {$data['field']} LIKE :search";
-            $params[':search'] = $searchTerm;
-        }
+        $query .= " WHERE {$data['table']}.{$data['field']} LIKE :search";
+        $params[':search'] = $searchTerm;
+    } elseif (isset($data['field']) || isset($data['search'])) {
+        throw new Exception("Both field and search parameters must be provided together", 400);
     }
 
-    // Add limit (except when getting full details which already has limit)
-    $fullDetailCases = [
-        'products' => 'Name',
-        'retailers' => 'Name',
-        'listings' => ['ProductID', 'RID'],
-        'orders' => ['OrderID', 'K']
-    ];
-    
-    $isFullDetailCase = (
-        ($data['table'] === 'products' && $data['field'] === 'Name') ||
-        ($data['table'] === 'retailers' && $data['field'] === 'Name') ||
-        ($data['table'] === 'listings' && in_array($data['field'], ['ProductID', 'RID'])) ||
-        ($data['table'] === 'orders' && in_array($data['field'], ['OrderID', 'K']))
-    );
-
-    if (!$isFullDetailCase) {
-        $query .= " LIMIT :limit";
+    // Add DISTINCT if not searching (to get all unique records)
+    if (!isset($data['field']) || !isset($data['search'])) {
+        $query = "SELECT DISTINCT $columns FROM ($query) AS temp";
     }
+
+    // Add limit
+    $query .= " LIMIT :limit";
+    $params[':limit'] = $limit;
 
     // Prepare and execute query
     $stmt = $this->db->prepare($query);
@@ -435,36 +425,12 @@ class API {
     foreach ($params as $key => $value) {
         $stmt->bindValue($key, $value);
     }
-    
-    // Bind limit if not already bound
-    if (!array_key_exists(':limit', $params) && !$isFullDetailCase) {
-        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-    }
 
     $stmt->execute();
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Format results - extract just the field values unless we got full details
-    $shouldExtractField = !(
-        ($data['table'] === 'products' && $data['field'] === 'Name') ||
-        ($data['table'] === 'retailers' && $data['field'] === 'Name') ||
-        ($data['table'] === 'listings' && in_array($data['field'], ['ProductID', 'RID'])) ||
-        ($data['table'] === 'orders' && in_array($data['field'], ['OrderID', 'K']))
-    );
-
-    if ($shouldExtractField) {
-        $results = array_column($results, $data['field']);
-        // Remove empty values
-        $results = array_filter($results, function($value) {
-            return !empty($value);
-        });
-        // Re-index array
-        $results = array_values($results);
-    }
-
     $this->sendSuccess([
         'table' => $data['table'],
-        'field' => $data['field'],
         'count' => count($results),
         'results' => $results
     ]);
