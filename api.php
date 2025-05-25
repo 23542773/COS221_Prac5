@@ -417,14 +417,19 @@ class API {
     // Add limit
     $query .= " LIMIT :limit";
     $params[':limit'] = $limit;
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
 
     // Prepare and execute query
     $stmt = $this->db->prepare($query);
     
     // Bind parameters
     foreach ($params as $key => $value) {
+    if ($key === ':limit') {
+        $stmt->bindValue($key, $value, PDO::PARAM_INT);
+    } else {
         $stmt->bindValue($key, $value);
     }
+}
 
     $stmt->execute();
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
