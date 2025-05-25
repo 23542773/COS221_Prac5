@@ -352,7 +352,7 @@ class API {
         ],
         'listings' => [
             'fields' => ['ProductID', 'RID', 'quantity', 'price', 'remaining'],
-            'columns' => ['ProductID', 'RID', 'quantity', 'price', 'remaining'],
+            'columns' => ['listings.ProductID', 'listings.RID', 'listings.quantity', 'listings.price', 'listings.remaining'],
             'joins' => [
                 'products' => 'ProductID',
                 'retailers' => ['RID' => 'RetailerID']
@@ -375,8 +375,8 @@ class API {
     $tableConfig = $tableStructures[$data['table']];
     $columns = implode(', ', $tableConfig['columns']);
 
-    // Set limit with bounds
-    $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 50) : 10;
+    // Set limit with bounds (minimum 1, no upper bound)
+    $limit = isset($data['limit']) ? max(1, (int)$data['limit']) : 10;
     
     // Base query - select all columns
     $query = "SELECT $columns FROM {$data['table']}";
@@ -417,19 +417,18 @@ class API {
     // Add limit
     $query .= " LIMIT :limit";
     $params[':limit'] = $limit;
-    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
 
     // Prepare and execute query
     $stmt = $this->db->prepare($query);
     
     // Bind parameters
     foreach ($params as $key => $value) {
-    if ($key === ':limit') {
-        $stmt->bindValue($key, $value, PDO::PARAM_INT);
-    } else {
-        $stmt->bindValue($key, $value);
+        if ($key === ':limit') {
+            $stmt->bindValue($key, $value, PDO::PARAM_INT);
+        } else {
+            $stmt->bindValue($key, $value);
+        }
     }
-}
 
     $stmt->execute();
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -441,7 +440,7 @@ class API {
     ]);
 }
 
-    private function handleRating($data) {
+private function handleRating($data) {
         if (!$this->validateApiKey($data['api'])) {
             throw new Exception("Invalid API key", 401);
         }
