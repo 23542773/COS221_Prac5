@@ -420,12 +420,15 @@ private function handleSetRating($data) {
 private function handleGetRating($data) {
     try {
         if (isset($data['productId'])) {
+            // Public product rating view — NO API key needed
             $productId = (int)$data['productId'];
 
+            // Check product exists
             $stmt = $this->db->prepare("SELECT ProductID FROM products WHERE ProductID = ?");
             $stmt->execute([$productId]);
             if (!$stmt->fetch()) throw new Exception("Product not found", 404);
 
+            // Get ratings for product
             $stmt = $this->db->prepare("
                 SELECT r.Rating, r.Comment, r.Date, u.Name 
                 FROM productratings r 
@@ -436,6 +439,7 @@ private function handleGetRating($data) {
             $stmt->execute([$productId]);
             $ratings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+            // Get average and count
             $stmt = $this->db->prepare("SELECT AVG(Rating) as avg_rating, COUNT(*) as total_ratings FROM productratings WHERE PID = ?");
             $stmt->execute([$productId]);
             $ratingStats = $stmt->fetch();
@@ -446,7 +450,12 @@ private function handleGetRating($data) {
                 'totalRatings' => (int)$ratingStats['total_ratings'],
                 'ratings' => $ratings
             ];
+
         } else {
+            // Requires API key to get current user's ratings
+            if (!isset($data['apikey'])) {
+                throw new Exception("API key is required when retrieving user's ratings", 400);
+            }
             $apiKey = $data['apikey'];
 
             $stmt = $this->db->prepare("
@@ -466,6 +475,7 @@ private function handleGetRating($data) {
         }
 
         $this->sendSuccess($response);
+
     } catch (PDOException $e) {
         throw new Exception("Database error: " . $e->getMessage(), 500);
     }
