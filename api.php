@@ -351,13 +351,14 @@ class API {
             'columns' => ['K', 'PID', 'Rating', 'Comment', 'Date']
         ],
         'listings' => [
-            'fields' => ['ProductID', 'RID', 'quantity', 'price', 'remaining'],
-            'columns' => ['listings.ProductID', 'listings.RID', 'listings.quantity', 'listings.price', 'listings.remaining'],
-            'joins' => [
-                'products' => 'ProductID',
-                'retailers' => ['RID' => 'RetailerID']
-            ]
+        'fields' => ['listings.ProductID', 'listings.RID', 'listings.quantity', 'listings.price', 'listings.remaining'],
+        'columns' => ['listings.ProductID', 'listings.RID', 'listings.quantity', 'listings.price', 'listings.remaining'],
+        'joins' => [
+        'products' => ['listings.ProductID' => 'products.ProductID'],
+        'retailers' => ['listings.RID' => 'retailers.RetailerID']
+        ]
         ],
+
         'orders' => [
             'fields' => ['OrderID', 'K', 'OrderDate', 'Total'],
             'columns' => ['OrderID', 'K', 'OrderDate', 'Total'],
@@ -383,17 +384,16 @@ class API {
     $params = [];
 
     // Handle joins if they exist
-    if (isset($tableConfig['joins'])) {
         foreach ($tableConfig['joins'] as $joinTable => $joinConditions) {
-            if (is_array($joinConditions)) {
-                foreach ($joinConditions as $left => $right) {
-                    $query .= " JOIN $joinTable ON {$data['table']}.$left = $joinTable.$right";
-                }
-            } else {
-                $query .= " JOIN $joinTable ON {$data['table']}.$joinConditions = $joinTable.$joinConditions";
-            }
+        if (is_array($joinConditions)) {
+        foreach ($joinConditions as $left => $right) {
+            $query .= " JOIN $joinTable ON $left = $right";
         }
+        } else {
+        $query .= " JOIN $joinTable ON {$data['table']}.$joinConditions = $joinTable.$joinConditions";
+     }
     }
+
 
     // Add search condition if field and search are provided
     if (isset($data['field']) && isset($data['search'])) {
