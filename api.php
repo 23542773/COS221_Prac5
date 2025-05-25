@@ -323,7 +323,7 @@ class API {
     if (!isset($data['apikey'])) {
         throw new Exception("API key is required", 400);
     }
-    
+
     // Verify API key exists
     $stmt = $this->db->prepare("SELECT 1 FROM users WHERE API_Key = ?");
     $stmt->execute([$data['apikey']]);
@@ -339,31 +339,30 @@ class API {
     // Define table structures with all columns to return
     $tableStructures = [
         'products' => [
-            'fields' => ['ProductID', 'Name', 'Brand', 'Category'],
-            'columns' => ['ProductID', 'Name', 'Description', 'Brand', 'Category', 'Thumbnail']
+            'fields' => ['products.ProductID', 'products.Name', 'products.Brand', 'products.Category'],
+            'columns' => ['products.ProductID', 'products.Name', 'products.Description', 'products.Brand', 'products.Category', 'products.Thumbnail']
         ],
         'retailers' => [
-            'fields' => ['RetailerID', 'Name'],
-            'columns' => ['RetailerID', 'Name', 'URL']
+            'fields' => ['retailers.RetailerID', 'retailers.Name'],
+            'columns' => ['retailers.RetailerID', 'retailers.Name', 'retailers.URL']
         ],
         'productratings' => [
-            'fields' => ['K', 'PID', 'Rating', 'Date'],
-            'columns' => ['K', 'PID', 'Rating', 'Comment', 'Date']
+            'fields' => ['productratings.K', 'productratings.PID', 'productratings.Rating', 'productratings.Date'],
+            'columns' => ['productratings.K', 'productratings.PID', 'productratings.Rating', 'productratings.Comment', 'productratings.Date']
         ],
         'listings' => [
-        'fields' => ['listings.ProductID', 'listings.RID', 'listings.quantity', 'listings.price', 'listings.remaining'],
-        'columns' => ['listings.ProductID', 'listings.RID', 'listings.quantity', 'listings.price', 'listings.remaining'],
-        'joins' => [
-        'products' => ['listings.ProductID' => 'products.ProductID'],
-        'retailers' => ['listings.RID' => 'retailers.RetailerID']
-        ]
-        ],
-
-        'orders' => [
-            'fields' => ['OrderID', 'K', 'OrderDate', 'Total'],
-            'columns' => ['OrderID', 'K', 'OrderDate', 'Total'],
+            'fields' => ['listings.ProductID', 'listings.RID', 'listings.quantity', 'listings.price', 'listings.remaining'],
+            'columns' => ['listings.ProductID', 'listings.RID', 'listings.quantity', 'listings.price', 'listings.remaining'],
             'joins' => [
-                'users' => ['K' => 'API_Key']
+                'products' => ['listings.ProductID' => 'products.ProductID'],
+                'retailers' => ['listings.RID' => 'retailers.RetailerID']
+            ]
+        ],
+        'orders' => [
+            'fields' => ['orders.OrderID', 'orders.K', 'orders.OrderDate', 'orders.Total'],
+            'columns' => ['orders.OrderID', 'orders.K', 'orders.OrderDate', 'orders.Total'],
+            'joins' => [
+                'users' => ['orders.K' => 'users.API_Key']
             ]
         ]
     ];
@@ -373,72 +372,63 @@ class API {
         throw new Exception("Invalid table specified", 400);
     }
 
-    $tableConfig = $tableStructures[$data['table']];
+    $table = $data['table'];
+    $tableConfig = $tableStructures[$table];
     $columns = implode(', ', $tableConfig['columns']);
 
-    // Set limit with bounds (minimum 1, no upper bound)
+    // Set limit
     $limit = isset($data['limit']) ? max(1, (int)$data['limit']) : 10;
-    
-    // Base query - select all columns
-    $query = "SELECT $columns FROM {$data['table']}";
-    $params = [];
 
-    // Handle joins if they exist
+    // Base FROM and JOINs
+    $query = "FROM $table";
+    if (isset($tableConfig['joins'])) {
         foreach ($tableConfig['joins'] as $joinTable => $joinConditions) {
-        if (is_array($joinConditions)) {
-        foreach ($joinConditions as $left => $right) {
-            $query .= " JOIN $joinTable ON $left = $right";
+            foreach ($joinConditions as $left => $right) {
+                $query .= " JOIN $joinTable ON $left = $right";
+            }
         }
-        } else {
-        $query .= " JOIN $joinTable ON {$data['table']}.$joinConditions = $joinTable.$joinConditions";
-     }
     }
 
+    $params = [];
 
-    // Add search condition if field and search are provided
+    // Add search condition if applicable
+    $whereClause = '';
     if (isset($data['field']) && isset($data['search'])) {
-        // Validate field
         if (!in_array($data['field'], $tableConfig['fields'])) {
             throw new Exception("Invalid field for the specified table", 400);
         }
-
         $searchTerm = "%{$data['search']}%";
-        $query .= " WHERE {$data['table']}.{$data['field']} LIKE :search";
+        $whereClause = " WHERE {$data['field']} LIKE :search";
         $params[':search'] = $searchTerm;
     } elseif (isset($data['field']) || isset($data['search'])) {
         throw new Exception("Both field and search parameters must be provided together", 400);
     }
 
-    // Add DISTINCT if not searching (to get all unique records)
-    if (!isset($data['field']) || !isset($data['search'])) {
-        $query = "SELECT DISTINCT $columns FROM ($query) AS temp";
-    }
+    // Final SELECT with DISTINCT if no filtering
+    $selectClause = isset($data['field']) && isset($data['search'])
+        ? "SELECT $columns"
+        : "SELECT DISTINCT $columns";
 
-    // Add limit
-    $query .= " LIMIT :limit";
+    // Compose final query
+    $finalQuery = "$selectClause $query $whereClause LIMIT :limit";
     $params[':limit'] = $limit;
 
-    // Prepare and execute query
-    $stmt = $this->db->prepare($query);
-    
-    // Bind parameters
+    // Prepare and execute
+    $stmt = $this->db->prepare($finalQuery);
     foreach ($params as $key => $value) {
-        if ($key === ':limit') {
-            $stmt->bindValue($key, $value, PDO::PARAM_INT);
-        } else {
-            $stmt->bindValue($key, $value);
-        }
+        $stmt->bindValue($key, $value, $key === ':limit' ? PDO::PARAM_INT : PDO::PARAM_STR);
     }
 
     $stmt->execute();
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $this->sendSuccess([
-        'table' => $data['table'],
+        'table' => $table,
         'count' => count($results),
         'results' => $results
     ]);
 }
+
 
 private function handleRating($data) {
         if (!$this->validateApiKey($data['api'])) {
