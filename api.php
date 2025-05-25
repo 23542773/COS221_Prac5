@@ -339,28 +339,28 @@ class API {
     // Define table structures with all columns to return
     $tableStructures = [
         'products' => [
-            'fields' => ['products.ProductID', 'products.Name', 'products.Brand', 'products.Category'],
-            'columns' => ['products.ProductID', 'products.Name', 'products.Description', 'products.Brand', 'products.Category', 'products.Thumbnail']
+            'fields' => ['products.ProductID', 'Name', 'Brand', 'Category'],
+            'columns' => ['products.ProductID', 'Name', 'Description', 'Brand', 'Category', 'Thumbnail']
         ],
         'retailers' => [
-            'fields' => ['retailers.RetailerID', 'retailers.Name'],
-            'columns' => ['retailers.RetailerID', 'retailers.Name', 'retailers.URL']
+            'fields' => ['retailers.RetailerID', 'Name'],
+            'columns' => ['retailers.RetailerID', 'Name', 'URL']
         ],
         'productratings' => [
-            'fields' => ['productratings.K', 'productratings.PID', 'productratings.Rating', 'productratings.Date'],
-            'columns' => ['productratings.K', 'productratings.PID', 'productratings.Rating', 'productratings.Comment', 'productratings.Date']
+            'fields' => ['productratings.K', 'productratings.PID', 'Rating', 'Date'],
+            'columns' => ['productratings.K', 'productratings.PID', 'Rating', 'Comment', 'Date']
         ],
         'listings' => [
-            'fields' => ['listings.ProductID', 'listings.RID', 'listings.quantity', 'listings.price', 'listings.remaining'],
-            'columns' => ['listings.ProductID', 'listings.RID', 'listings.quantity', 'listings.price', 'listings.remaining'],
+            'fields' => ['listings.ProductID', 'listings.RID', 'quantity', 'price', 'remaining'],
+            'columns' => ['listings.ProductID', 'listings.RID', 'quantity', 'price', 'remaining'],
             'joins' => [
                 'products' => ['listings.ProductID' => 'products.ProductID'],
                 'retailers' => ['listings.RID' => 'retailers.RetailerID']
             ]
         ],
         'orders' => [
-            'fields' => ['orders.OrderID', 'orders.K', 'orders.OrderDate', 'orders.Total'],
-            'columns' => ['orders.OrderID', 'orders.K', 'orders.OrderDate', 'orders.Total'],
+            'fields' => ['orders.OrderID', 'orders.K', 'OrderDate', 'Total'],
+            'columns' => ['orders.OrderID', 'orders.K', 'OrderDate', 'Total'],
             'joins' => [
                 'users' => ['orders.K' => 'users.API_Key']
             ]
