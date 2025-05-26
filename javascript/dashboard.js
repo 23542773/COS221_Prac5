@@ -9,13 +9,10 @@ togglePreferences.addEventListener('click', function () {
 
 darkModeToggle.addEventListener('change', function () {
     const page = document.querySelector('.page');
-    const theme = document.getElementById('themeName');
 
     if (darkModeToggle.checked) {
-        theme.textContent = 'Dark';
         page.style.background = '#262626';
     } else {
-        theme.textContent = 'Light'
         page.style.background = '#fcfaf9';
     }
 });

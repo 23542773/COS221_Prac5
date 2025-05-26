@@ -25,7 +25,6 @@
             <div class="toggle-container">
                 <input type="checkbox" id="darkModeToggle" class="toggle-checkbox">
                 <label for="darkModeToggle" class="toggle-label"></label>
-                <span id="themeName">Light</span>
             </div>
             <p class="prefHeading">Sort</p>
             <button>sort</button>

@@ -4,34 +4,26 @@
   background-color: #fcfaf9;
   display: flex;
   justify-content: center;
-  align-items: center;
 }
 
 #preferences {
-  position: absolute;
-  width: 20vw;
-  top: 100px;
-  left: 0px;
-  bottom: 0px;
+  margin-top: 100px;
+  height: 5vh;
   display: flex;
-  flex-direction: column;
-  padding-left: 1vw;
+  align-items: center;
   background-color: #747578;
-}
-
-#preferences.hide {
-  transform: translateX(-100%);
+  box-shadow: 2px 2px 5px #262626;
 }
 
 #prefH1 {
   margin: 0;
-  margin-top: 1vh;
+  margin-left: 1vw;
   font-size: 2em;
 }
 
 .prefHeading {
   margin: 0;
-  margin-top: 2vh;
+  margin-left: 2vw;
   font-size: 1.5em;
 }
 
@@ -81,7 +73,7 @@
 
 /* When the checkbox IS CHECKED */
 .toggle-checkbox:checked + .toggle-label {
-  background-color: #132A13;
+  background-color: #132a13;
 }
 
 /* Move the thumb to the right when checked */
