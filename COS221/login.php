@@ -23,7 +23,7 @@
 
                 </div>
 
-                <form id="loginForm" action="#" method="post" styl>
+                <form id="loginForm" action="#" method="post">
 
                     <div class="form-group">
                         <label for="email">Email:</label>
@@ -40,7 +40,7 @@
                     <button type="submit">Login</button>
                 </form>
 
-                <form id="signupForm" action="#" method="post" styl>
+                <form id="signupForm" action="#" method="post">
 
                     <div class="form-group">
                         <label for="firstName">First Name:</label>
@@ -56,14 +56,33 @@
 
                     <div class="form-group">
                         <label for="email">Email:</label>
-                        <input type="email" id="email" name="email" placeholder="Enter your email" required>
-                        <div id="email-error" class="error-message"></div>
+                        <input type="email" id="signup-email" name="email" placeholder="Enter your email" required>
+                        <div id="signup-email-error" class="error-message"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phone">Celphone:</label>
+                        <div id="phonediv">
+                            <select id="countryCode" name="countryCode" aria-label="Country code" required>
+                                <option value="" disabled selected>Select Country</option>
+                                <option value="+27">South Africa (+27)</option>
+                                <option value="+264">Namibia (+264)</option>
+                                <option value="+267">Botswana (+267)</option>
+                                <option value="+263">Zimbabwe (+263)</option>
+                                <option value="+258">Mozambique (+258)</option>
+                                <option value="+266">Lesotho (+266)</option>
+                                <option value="+268">Eswatini (+268)</option>
+                                <option value="+244">Angola (+244)</option>
+                            </select>
+                            <input type="tel" id="phone" name="phone" placeholder="Enter cellphone number" required />
+                        </div>
+                        <div id="cphone-error" class="error-message"></div>
                     </div>
 
                     <div class="form-group">
                         <label for="password">Password:</label>
-                        <input type="password" id="password" name="password" placeholder="Enter your password" required>
-                        <div id="password-error" class="error-message"></div>
+                        <input type="password" id="signup-password" name="password" placeholder="Enter your password" required>
+                        <div id="signup-password-error" class="error-message"></div>
                     </div>
 
                     <button type="submit">Register</button>

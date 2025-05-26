@@ -2,7 +2,6 @@
 session_start(); 
 $isLoggedIn = isset($_SESSION['anapikey']);
 $username = $isLoggedIn ? $_SESSION['username'] : ''; 
-echo '<!-- CURRENT FILE: ' .  basename($_SERVER['PHP_SELF']) . ' -->';
 $current_page = basename($_SERVER['PHP_SELF']);
 ?>
 
@@ -91,7 +90,8 @@ $current_page = basename($_SERVER['PHP_SELF']);
   <nav>
     <ul>
       <li><a href="index.php" class="<?php echo $current_page === 'index.php' ? 'active' : ''; ?>">Search</a></li>
-      <li><a class="<?php echo $current_page === 'tpprated.php' ? 'active' : ''; ?>">Top Rated</a></li>
+      <li><a href="products.php" class="<?php echo $current_page === 'products.php' ? 'active' : ''; ?>">Products</a></li>
+      <li><a class="<?php echo $current_page === 'tpprated.php' ? 'active' : ''; ?>">Dashboard</a></li>
       <li><a class="<?php echo $current_page === 'wishlist.php' ? 'active' : ''; ?>">Wishlist</a></li>
       <li><a class="<?php echo $current_page === 'orders.php' ? 'active' : ''; ?>">Orders</a></li>
       <li><a href="cart.php" class="<?php echo $current_page === 'cart.php' ? 'active' : ''; ?>">Cart</a></li>
