@@ -306,31 +306,68 @@ private function isAdmin($apiKey) {
 }
 
     private function handleGetAllProducts($data) {
-        if (!$this->validateApiKey($data['api'])) {
-            throw new Exception("Invalid API key", 401);
+        // Validate API key first
+        if (!isset($data['api'])) {
+            throw new Exception("API key is required", 400);
         }
         
-        $query = "SELECT * FROM products WHERE 1=1";
-        
-        if (isset($data['search']) && is_array($data['search'])) {
-            // TODO: Add search conditions
-        }
-        
-        $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 800) : 50;
-        $query .= " LIMIT $limit";
-        
-        if (isset($data['sort'])) {
-            $validSortFields = ['category', 'price', 'brand', 'country_of_origin'];
-            if (in_array($data['sort'], $validSortFields)) {
-                $order = isset($data['order']) && strtoupper($data['order']) === 'DESC' ? 'DESC' : 'ASC';
-                $query .= " ORDER BY {$data['sort']} $order";
+        try {
+            // Verify API key exists in database
+            $stmt = $this->db->prepare("SELECT 1 FROM users WHERE API_Key = ?");
+            $stmt->execute([$data['api']]);
+            if (!$stmt->fetch()) {
+                throw new Exception("Invalid API key", 401);
             }
+
+            $query = "SELECT * FROM products p LEFT JOIN listings l ON p.ProductID=l.ProductID";
+            $params = [];
+            
+            // Handle search parameters
+            if (isset($data['search']) && is_array($data['search'])) {
+                $searchConditions = [];
+                $validSearchColumns = [
+                    'ProductID', 'Name', 'Description', 'Brand', 'Category', 
+                    'quantity', 'priceMin', 'priceMax'
+                ];
+
+                foreach ($data['search'] as $column => $value) {
+                    if (in_array($column, $validSearchColumns)) {
+                        if ($column === "ProductID") {
+                            $searchConditions[] = "p.ProductID = ?";
+                            $params[] = $value;
+                        } elseif ($column === "priceMin") {
+                            $searchConditions[] = "l.price >= ?";
+                            $params[] = $value;
+                        } elseif ($column === "priceMax") {
+                            $searchConditions[] = "l.price <= ?";
+                            $params[] = $value;
+                        } else {
+                            // Default to exact match for other fields
+                            $searchConditions[] = "$column = ?";
+                            $params[] = $value;
+                        }
+                    }
+                }
+
+                if (!empty($searchConditions)) {
+                    $query .= " WHERE " . implode(" AND ", $searchConditions);
+                }
+            }
+            
+            // Handle limit - must be cast to int and concatenated directly
+            $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 800) : 50;
+            $query .= " LIMIT " . (int)$limit;
+
+            $stmt = $this->db->prepare($query);
+            $stmt->execute($params);
+            $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            $this->sendSuccess($products);
+        } catch (PDOException $e) {
+            throw new Exception("Database error: " . $e->getMessage(), 500);
         }
-        
-        // TODO: Execute query
-        
-        $this->sendSuccess([]);
     }
+
     // CREATE: Add new admin
 private function handleCreateAdmin($data) {
     // Validate required fields
