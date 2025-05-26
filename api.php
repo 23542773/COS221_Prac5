@@ -99,7 +99,7 @@ class API {
                     $this->handleRating($data);
                     break;
                  case 'admin':
-                    $this->handlAdmin($data);
+                    $this->handleAdmin($data);
                     break;
                 default:
                     throw new Exception("Unknown API endpoint", 400);
@@ -252,7 +252,7 @@ class API {
     }
 }
 
-    private function handlAdmin($data) {
+    private function handleAdmin($data) {
     // Validate API key
     if (!isset($data['apikey'])) {
         throw new Exception("API key is required", 400);
@@ -331,7 +331,7 @@ private function isAdmin($apiKey) {
         
         $this->sendSuccess([]);
     }
-    // CREATE: Add new admin
+    // CREATE: universal create
 private function handleUniversalCreate($data) {
     //  1. Check admin API key
     if (!isset($data['apikey']) || !$this->isAdmin($data['apikey'])) {
@@ -343,22 +343,22 @@ private function handleUniversalCreate($data) {
         throw new Exception("Table parameter is required", 400);
     }
 
-    //  3. Define allowed tables and insertable fields
+     //  3. Define allowed tables and insertable fields
     $allowedTables = [
-    'admin' => ['K', 'Privilege'],
-    'carts' => ['K', 'PID', 'Quantity'],
-    'categories' => ['RID', 'Category'],
-    'listings' => ['ProductID', 'RID', 'quantity', 'price', 'remaining'],
-    'orderitems' => ['OID', 'PID', 'RID', 'Quantity', 'UnitPrice'],
-    'orders' => ['OrderID', 'K', 'OrderDate', 'Total'], // exclude OrderID if auto-increment
-    'preferences' => ['K', 'Pref_Slot', 'Theme', 'Display_Name'],
-    'productimgs' => ['PID', 'URL'],
-    'productratings' => ['K', 'PID', 'Rating', 'Comment', 'Date'],
-    'products' => ['ProductID', 'Name', 'Description', 'Brand', 'Category', 'Thumbnail'],
-    'retailers' => ['RetailerID', 'Name', 'URL'],
-    'users' => ['API_Key', 'Name', 'Surname', 'Password', 'Salt', 'Email', 'Phone_Number'],
-    'wishlist' => ['K', 'PID']
-];
+        'admin' => ['K', 'Privilege'],
+        'carts' => ['K', 'PID', 'Quantity'],
+        'categories' => ['RID', 'Category'],
+        'listings' => ['ProductID', 'RID', 'quantity', 'price', 'remaining'],
+        'orderitems' => ['OID', 'PID', 'RID', 'Quantity', 'UnitPrice'],
+        'orders' => ['OrderID', 'K', 'OrderDate', 'Total'], // exclude OrderID if auto-increment
+        'preferences' => ['K', 'Pref_Slot', 'Theme', 'Display_Name'],
+        'productimgs' => ['PID', 'URL'],
+        'productratings' => ['K', 'PID', 'Rating', 'Comment', 'Date'],
+        'products' => ['ProductID', 'Name', 'Description', 'Brand', 'Category', 'Thumbnail'],
+        'retailers' => ['RetailerID', 'Name', 'URL'],
+        'users' => ['API_Key', 'Name', 'Surname', 'Password', 'Salt', 'Email', 'Phone_Number'],
+        'wishlist' => ['K', 'PID']
+    ];
 
     $table = $data['table'];
     if (!array_key_exists($table, $allowedTables)) {
@@ -374,6 +374,20 @@ private function handleUniversalCreate($data) {
     $validFields = $allowedTables[$table];
     $insertFields = [];
     $insertValues = [];
+
+    // Special handling for 'users' table: generate secure values if missing
+    if ($table === 'users') {
+        if (!isset($data['values']['API_Key'])) {
+            $data['values']['API_Key'] = $this->generateApiKey();
+        }
+        if (!isset($data['values']['Salt'])) {
+            $data['values']['Salt'] = bin2hex(random_bytes(16));
+        }
+        if (!isset($data['values']['Password'])) {
+            throw new Exception("Password is required for users", 400);
+        }
+        $data['values']['Password'] = hash('sha256', $data['values']['Password'] . $data['values']['Salt']);
+    }
 
     foreach ($data['values'] as $field => $value) {
         if (!in_array($field, $validFields)) {
@@ -438,45 +452,52 @@ private function handleGetAdmin($data) {
 
 // UPDATE:universal update 
 private function handleUniversalUpdate($data) {
-      // Validate required fields
+    // Validate required fields
     if (!isset($data['table'])) {
         throw new Exception("table parameter is required", 400);
     }
-    
+
     if (!isset($data['updates']) || !is_array($data['updates'])) {
         throw new Exception("updates parameter is required and must be an array", 400);
     }
-    
+
     if (!isset($data['where']) || !is_array($data['where'])) {
         throw new Exception("where parameter is required and must be an array", 400);
     }
-     //  1. Check admin API key
+    //  1. Check admin API key
     if (!isset($data['apikey']) || !$this->isAdmin($data['apikey'])) {
         throw new Exception("Admin access required", 403);
     }
-    
+
     $table = $data['table'];
     $updates = $data['updates'];
     $where = $data['where'];
-    
+
     // Define allowed tables and their primary keys/identifiers
-   $allowedTables = [
-    'retailers' => ['RetailerID'],
-    'listings' => ['ProductID', 'RID'],
-    'categories' => ['RID', 'Category'],
-    'orders' => ['OrderID'],
-    'productratings' => ['K', 'PID'],
-    'users' => ['API_Key'],
-    'orderitems' => ['OID', 'PID', 'RID'],
-    'products' => ['ProductID'],
-    'preferences' => ['K', 'Pref_Slot']
-];
-    
+    $allowedTables = [
+        'retailers' => ['RetailerID'],
+        'listings' => ['ProductID', 'RID'],
+        'categories' => ['RID', 'Category'],
+        'orders' => ['OrderID'],
+        'productratings' => ['K', 'PID'],
+        'users' => ['API_Key'],
+        'orderitems' => ['OID', 'PID', 'RID'],
+        'products' => ['ProductID'],
+        'preferences' => ['K', 'Pref_Slot']
+    ];
+
     if (!array_key_exists($table, $allowedTables)) {
         throw new Exception("Invalid table. Allowed tables: " . implode(', ', array_keys($allowedTables)), 400);
     }
-    
+
     try {
+        // Special handling for user password update
+        if ($table === 'users' && isset($updates['Password'])) {
+            if (!isset($updates['Salt'])) {
+                $updates['Salt'] = bin2hex(random_bytes(16));
+            }
+            $updates['Password'] = hash('sha256', $updates['Password'] . $updates['Salt']);
+        }
         // Build SET clause
         $setParts = [];
         $setValues = [];
@@ -485,7 +506,7 @@ private function handleUniversalUpdate($data) {
             $setValues[] = $value;
         }
         $setClause = implode(', ', $setParts);
-        
+
         // Build WHERE clause
         $whereParts = [];
         $whereValues = [];
@@ -494,21 +515,21 @@ private function handleUniversalUpdate($data) {
             $whereValues[] = $value;
         }
         $whereClause = implode(' AND ', $whereParts);
-        
-        // Combine values
+
+         // Combine values
         $allValues = array_merge($setValues, $whereValues);
-        
+
         // Build and execute query
         $query = "UPDATE `$table` SET $setClause WHERE $whereClause";
         $stmt = $this->db->prepare($query);
         $stmt->execute($allValues);
-        
+
         $affectedRows = $stmt->rowCount();
-        
+
         if ($affectedRows === 0) {
             throw new Exception("No records found matching the criteria or no changes made", 404);
         }
-        
+
         $this->sendSuccess([
             'message' => 'Update successful',
             'table' => $table,
@@ -516,7 +537,7 @@ private function handleUniversalUpdate($data) {
             'updates' => $updates,
             'where' => $where
         ]);
-        
+
     } catch (PDOException $e) {
         throw new Exception("Database error: " . $e->getMessage(), 500);
     }
