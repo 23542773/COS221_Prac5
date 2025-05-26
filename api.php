@@ -156,10 +156,10 @@ class API {
 private function handleGetWishlist($apiKey) {
     // Get all wishlist items with product details
     $stmt = $this->db->prepare("
-        SELECT w.ProductID, p.Name, p.Price, p.Thumbnail
+        SELECT p.ProductID, p.Name, p.Price, p.Thumbnail
         FROM wishlist w
-        JOIN products p ON w.ProductID = p.ProductID
-        WHERE w.API_Key = ?
+        JOIN products p ON w.PID = p.ProductID
+        WHERE w.K = ?
         ORDER BY w.AddedAt DESC
     ");
     $stmt->execute([$apiKey]);
@@ -180,14 +180,14 @@ private function handleSetWishlist($apiKey, $productId) {
     }
 
     // Check if already in wishlist
-    $stmt = $this->db->prepare("SELECT 1 FROM wishlist WHERE API_Key = ? AND ProductID = ?");
+    $stmt = $this->db->prepare("SELECT 1 FROM wishlist WHERE K = ? AND PID = ?");
     $stmt->execute([$apiKey, $productId]);
     if ($stmt->fetch()) {
         throw new Exception("Product already in wishlist", 409);
     }
 
     // Add to wishlist
-    $stmt = $this->db->prepare("INSERT INTO wishlist (API_Key, ProductID, AddedAt) VALUES (?, ?, NOW())");
+    $stmt = $this->db->prepare("INSERT INTO wishlist (K, PID, AddedAt) VALUES (?, ?, NOW())");
     $stmt->execute([$apiKey, $productId]);
 
     $this->sendSuccess([
@@ -198,7 +198,7 @@ private function handleSetWishlist($apiKey, $productId) {
 
 private function handleUnsetWishlist($apiKey, $productId) {
     // Remove from wishlist
-    $stmt = $this->db->prepare("DELETE FROM wishlist WHERE API_Key = ? AND ProductID = ?");
+    $stmt = $this->db->prepare("DELETE FROM wishlist WHERE K = ? AND PID = ?");
     $stmt->execute([$apiKey, $productId]);
 
     if ($stmt->rowCount() === 0) {
