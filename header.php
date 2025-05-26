@@ -80,7 +80,7 @@ $username = $isLoggedIn ? $_SESSION['username'] : ''; // Get the username if log
   </div>
   <nav>
     <ul>
-      <li>Dashboard</li>
+      <li><a href="/dashboard.php">Dashboard</a></li>
       <li>Cart</li>
       <li>Wishlist</li>
       <?php if ($isLoggedIn): ?>

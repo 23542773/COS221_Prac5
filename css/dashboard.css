@@ -1,0 +1,31 @@
+.page {
+  width: 100vw;
+  height: 100vh;
+  background-color: #fcfaf9;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#preferences {
+  position: absolute;
+  width: 20vw;
+
+  top: 100px;
+  left: 0px;
+  bottom: 0px;
+  background-color: #747578;
+}
+
+#preferences.hide {
+  transform: translateX(-100%);
+}
+
+#togglePreferences {
+  position: absolute;
+  top: 0px;
+  left: 100%;
+  width: 20px;
+  height: 20px;
+  background-color: #132a13;
+}
