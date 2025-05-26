@@ -581,7 +581,8 @@ private function handleListAdmins($data) {
     $tableStructures = [
         'products' => [
             'fields' => ['products.ProductID', 'Name', 'Brand', 'Category'],
-            'columns' => ['products.ProductID', 'Name', 'Description', 'Brand', 'Category', 'Thumbnail']
+            'columns' => ['products.ProductID', 'Name', 'Description', 'Brand', 'Category', 'Thumbnail'],
+            'filterable' => ['Brand', 'Category'] // Added filterable fields
         ],
         'retailers' => [
             'fields' => ['retailers.RetailerID', 'Name'],
@@ -597,7 +598,8 @@ private function handleListAdmins($data) {
             'joins' => [
                 'products' => ['listings.ProductID' => 'products.ProductID'],
                 'retailers' => ['listings.RID' => 'retailers.RetailerID']
-            ]
+            ],
+            'sortable' => ['price'] // Added sortable fields
         ],
         'orders' => [
             'fields' => ['orders.OrderID', 'orders.K', 'OrderDate', 'Total'],
@@ -631,27 +633,55 @@ private function handleListAdmins($data) {
     }
 
     $params = [];
+    $whereConditions = [];
+
+    // Add filter conditions if provided (for products table)
+    if ($table === 'products' && isset($data['filter']) && is_array($data['filter'])) {
+        foreach ($data['filter'] as $field => $value) {
+            if (in_array($field, $tableConfig['filterable'])) {
+                $whereConditions[] = "$field = :filter_$field";
+                $params[":filter_$field"] = $value;
+            }
+        }
+    }
 
     // Add search condition if applicable
-    $whereClause = '';
     if (isset($data['field']) && isset($data['search'])) {
         if (!in_array($data['field'], $tableConfig['fields'])) {
             throw new Exception("Invalid field for the specified table", 400);
         }
         $searchTerm = "%{$data['search']}%";
-        $whereClause = " WHERE {$data['field']} LIKE :search";
+        $whereConditions[] = "{$data['field']} LIKE :search";
         $params[':search'] = $searchTerm;
     } elseif (isset($data['field']) || isset($data['search'])) {
         throw new Exception("Both field and search parameters must be provided together", 400);
     }
 
+    // Add product ID filter for listings if provided
+    if ($table === 'listings' && isset($data['productId'])) {
+        $whereConditions[] = "listings.ProductID = :productId";
+        $params[':productId'] = (int)$data['productId'];
+    }
+
+    // Combine all WHERE conditions
+    if (!empty($whereConditions)) {
+        $query .= " WHERE " . implode(' AND ', $whereConditions);
+    }
+
+    // Add sorting if requested (for listings table)
+    $orderBy = '';
+    if ($table === 'listings' && isset($data['sort']) && $data['sort'] === 'price') {
+        $order = isset($data['order']) && strtoupper($data['order']) === 'DESC' ? 'DESC' : 'ASC';
+        $orderBy = " ORDER BY listings.price $order";
+    }
+
     // Final SELECT with DISTINCT if no filtering
-    $selectClause = isset($data['field']) && isset($data['search'])
+    $selectClause = (isset($data['field']) && isset($data['search'])) || !empty($whereConditions)
         ? "SELECT $columns"
         : "SELECT DISTINCT $columns";
 
     // Compose final query
-    $finalQuery = "$selectClause $query $whereClause LIMIT :limit";
+    $finalQuery = "$selectClause $query $orderBy LIMIT :limit";
     $params[':limit'] = $limit;
 
     // Prepare and execute
