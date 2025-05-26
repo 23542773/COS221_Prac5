@@ -408,6 +408,10 @@ private function handleGetAdmin($data) {
     if (!isset($data['userApiKey'])) {
         throw new Exception("userApiKey parameter is required", 400);
     }
+     //  1. Check admin API key
+    if (!isset($data['apikey']) || !$this->isAdmin($data['apikey'])) {
+        throw new Exception("Admin access required", 403);
+    }
 
     try {
         $userApiKey = $data['userApiKey'];
@@ -445,6 +449,10 @@ private function handleUniversalUpdate($data) {
     
     if (!isset($data['where']) || !is_array($data['where'])) {
         throw new Exception("where parameter is required and must be an array", 400);
+    }
+     //  1. Check admin API key
+    if (!isset($data['apikey']) || !$this->isAdmin($data['apikey'])) {
+        throw new Exception("Admin access required", 403);
     }
     
     $table = $data['table'];
@@ -524,6 +532,11 @@ private function handleUniversalDelete($data) {
     if (!isset($data['where']) || !is_array($data['where'])) {
         throw new Exception("where parameter is required and must be an array", 400);
     }
+
+     //  1. Check admin API key
+    if (!isset($data['apikey']) || !$this->isAdmin($data['apikey'])) {
+        throw new Exception("Admin access required", 403);
+    }
     
     $table = $data['table'];
     $where = $data['where'];
@@ -579,6 +592,10 @@ private function handleUniversalDelete($data) {
 
 // LIST: Get all admins
 private function handleListAdmins($data) {
+     //  1. Check admin API key
+    if (!isset($data['apikey']) || !$this->isAdmin($data['apikey'])) {
+        throw new Exception("Admin access required", 403);
+    }
     try {
         // Set limit with bounds 
         $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 50) : 20;
