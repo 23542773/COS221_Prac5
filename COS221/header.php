@@ -15,17 +15,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
     padding: 1rem 2rem;
   }
 
-  header>div {
-    font-weight: 700;
-    font-size: 1.4rem;
-    color: #262626;
-    margin-right: 3rem;
-    user-select: none;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
   nav ul {
     display: flex;
     list-style: none;
@@ -47,13 +36,13 @@ $current_page = basename($_SERVER['PHP_SELF']);
     cursor: pointer;
     font-weight: 500;
     color: #262626;
-    position: relative;
+    position: fixed;
     padding: 0.25rem 0;
     transition: color 0.3s ease;
   }
 
   nav ul li:hover {
-    color: #2edf84;
+    color: #000;
   }
 
    nav ul li a:hover {
