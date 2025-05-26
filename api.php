@@ -98,6 +98,9 @@ class API {
                 case 'rating':
                     $this->handleRating($data);
                     break;
+                case 'wishlist':
+                    $this->handleWishlist($data);
+                    break;
                 default:
                     throw new Exception("Unknown API endpoint", 400);
             }
@@ -105,6 +108,106 @@ class API {
             $this->sendError($e->getMessage(), $e->getCode() ?: 500);
         }
     }
+
+
+    private function handleWishlist($data) {
+    // Validate required parameters
+    if (!isset($data['apikey']) || !isset($data['operation'])) {
+        throw new Exception("API key and operation parameters are required", 400);
+    }
+
+    $apiKey = $data['apikey'];
+    $operation = strtolower($data['operation']);
+
+    try {
+        // Verify API key exists
+        $stmt = $this->db->prepare("SELECT 1 FROM users WHERE API_Key = ?");
+        $stmt->execute([$apiKey]);
+        if (!$stmt->fetch()) {
+            throw new Exception("Invalid API key", 401);
+        }
+
+        switch ($operation) {
+            case 'get':
+                $this->handleGetWishlist($apiKey);
+                break;
+            case 'set':
+                if (!isset($data['ProductID'])) {
+                    throw new Exception("ProductID is required for set operation", 400);
+                }
+                $this->handleSetWishlist($apiKey, (int)$data['ProductID']);
+                break;
+            case 'unset':
+                if (!isset($data['ProductID'])) {
+                    throw new Exception("ProductID is required for unset operation", 400);
+                }
+                $this->handleUnsetWishlist($apiKey, (int)$data['ProductID']);
+                break;
+            default:
+                throw new Exception("Invalid operation. Must be 'get', 'set', or 'unset'", 400);
+        }
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
+
+private function handleGetWishlist($apiKey) {
+    // Get all wishlist items with product details
+    $stmt = $this->db->prepare("
+        SELECT w.ProductID, p.Name, p.Price, p.Thumbnail
+        FROM wishlist w
+        JOIN products p ON w.ProductID = p.ProductID
+        WHERE w.API_Key = ?
+        ORDER BY w.AddedAt DESC
+    ");
+    $stmt->execute([$apiKey]);
+    $wishlistItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $this->sendSuccess([
+        'wishlist' => $wishlistItems,
+        'count' => count($wishlistItems)
+    ]);
+}
+
+private function handleSetWishlist($apiKey, $productId) {
+    // Verify product exists
+    $stmt = $this->db->prepare("SELECT 1 FROM products WHERE ProductID = ?");
+    $stmt->execute([$productId]);
+    if (!$stmt->fetch()) {
+        throw new Exception("Product not found", 404);
+    }
+
+    // Check if already in wishlist
+    $stmt = $this->db->prepare("SELECT 1 FROM wishlist WHERE API_Key = ? AND ProductID = ?");
+    $stmt->execute([$apiKey, $productId]);
+    if ($stmt->fetch()) {
+        throw new Exception("Product already in wishlist", 409);
+    }
+
+    // Add to wishlist
+    $stmt = $this->db->prepare("INSERT INTO wishlist (API_Key, ProductID, AddedAt) VALUES (?, ?, NOW())");
+    $stmt->execute([$apiKey, $productId]);
+
+    $this->sendSuccess([
+        'message' => 'Product added to wishlist',
+        'productId' => $productId
+    ]);
+}
+
+private function handleUnsetWishlist($apiKey, $productId) {
+    // Remove from wishlist
+    $stmt = $this->db->prepare("DELETE FROM wishlist WHERE API_Key = ? AND ProductID = ?");
+    $stmt->execute([$apiKey, $productId]);
+
+    if ($stmt->rowCount() === 0) {
+        throw new Exception("Product not found in wishlist", 404);
+    }
+
+    $this->sendSuccess([
+        'message' => 'Product removed from wishlist',
+        'productId' => $productId
+    ]);
+}
 
     private function handleLogin($data) {
     if (!isset($data['Email']) || !isset($data['Password'])) {
