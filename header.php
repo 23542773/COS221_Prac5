@@ -1,5 +1,5 @@
 <?php
-session_start(); // Start the session
+session_start();
 // Assuming 'anapikey' is the session variable that indicates a logged-in user
 $isLoggedIn = isset($_SESSION['anapikey']);
 $username = $isLoggedIn ? $_SESSION['username'] : ''; // Get the username if logged in
@@ -42,11 +42,11 @@ $username = $isLoggedIn ? $_SESSION['username'] : ''; // Get the username if log
     color: #262626;
     position: relative;
     padding: 0.25rem 0;
-    transition: color 0.3s ease;
+    transition: color 0.2s ease;
   }
 
   nav ul li:hover {
-    color: #007bff;
+    color: #2edf84;
   }
 
   .logo {
@@ -61,6 +61,16 @@ $username = $isLoggedIn ? $_SESSION['username'] : ''; // Get the username if log
     color: #222;
     user-select: none;
   }
+
+  a {
+    color: #262626;
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: #2edf84;
+    transition: color 0.2s ease;
+  }
 </style>
 
 <header>
@@ -70,15 +80,13 @@ $username = $isLoggedIn ? $_SESSION['username'] : ''; // Get the username if log
   </div>
   <nav>
     <ul>
-      <li>Search</li>
-      <li>Top Rated</li>
+      <li>Dashboard</li>
       <li>Cart</li>
+      <li>Wishlist</li>
       <?php if ($isLoggedIn): ?>
-        <li>Logout</li>
-        <li><?php echo htmlspecialchars($username); ?></li>
+        <li>Logout <?php echo htmlspecialchars($username); ?></li>
       <?php else: ?>
-        <li>Login</li>
-      <?php endif; ?>
+        <li><a href="/login.php">Login</a></li> <?php endif; ?>
     </ul>
   </nav>
 </header>
