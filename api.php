@@ -441,67 +441,98 @@ private function isAdmin($apiKey) {
 }
 
     private function handleGetAllProducts($data) {
-        // Validate API key first
-        if (!isset($data['api'])) {
-            throw new Exception("API key is required", 400);
+    // Validate API key first
+    if (!isset($data['api'])) {
+        throw new Exception("API key is required", 400);
+    }
+    
+    try {
+        // Verify API key exists in database
+        $stmt = $this->db->prepare("SELECT 1 FROM users WHERE API_Key = ?");
+        $stmt->execute([$data['api']]);
+        if (!$stmt->fetch()) {
+            throw new Exception("Invalid API key", 401);
         }
+
+        // Base query - now including average rating
+        $query = "SELECT p.*, 
+                 COALESCE(AVG(pr.Rating), 0) as averageRating,
+                 COUNT(pr.Rating) as ratingCount
+                 FROM products p 
+                 LEFT JOIN productratings pr ON p.ProductID = pr.PID";
+        $params = [];
         
-        try {
-            // Verify API key exists in database
-            $stmt = $this->db->prepare("SELECT 1 FROM users WHERE API_Key = ?");
-            $stmt->execute([$data['api']]);
-            if (!$stmt->fetch()) {
-                throw new Exception("Invalid API key", 401);
-            }
+        // Handle search parameters
+        if (isset($data['search']) && is_array($data['search'])) {
+            $searchConditions = [];
+            $validSearchColumns = [
+                'ProductID', 'Name', 'Description', 'Brand', 'Category', 
+                'quantity', 'priceMin', 'priceMax', 'minRating'
+            ];
 
-            $query = "SELECT * FROM products p LEFT JOIN listings l ON p.ProductID=l.ProductID";
-            $params = [];
-            
-            // Handle search parameters
-            if (isset($data['search']) && is_array($data['search'])) {
-                $searchConditions = [];
-                $validSearchColumns = [
-                    'ProductID', 'Name', 'Description', 'Brand', 'Category', 
-                    'quantity', 'priceMin', 'priceMax'
-                ];
-
-                foreach ($data['search'] as $column => $value) {
-                    if (in_array($column, $validSearchColumns)) {
-                        if ($column === "ProductID") {
-                            $searchConditions[] = "p.ProductID = ?";
-                            $params[] = $value;
-                        } elseif ($column === "priceMin") {
-                            $searchConditions[] = "l.price >= ?";
-                            $params[] = $value;
-                        } elseif ($column === "priceMax") {
-                            $searchConditions[] = "l.price <= ?";
-                            $params[] = $value;
-                        } else {
-                            // Default to exact match for other fields
-                            $searchConditions[] = "$column = ?";
-                            $params[] = $value;
-                        }
+            foreach ($data['search'] as $column => $value) {
+                if (in_array($column, $validSearchColumns)) {
+                    if ($column === "ProductID") {
+                        $searchConditions[] = "p.ProductID = ?";
+                        $params[] = $value;
+                    } elseif ($column === "priceMin") {
+                        $searchConditions[] = "l.price >= ?";
+                        $params[] = $value;
+                    } elseif ($column === "priceMax") {
+                        $searchConditions[] = "l.price <= ?";
+                        $params[] = $value;
+                    } elseif ($column === "minRating") {
+                        $searchConditions[] = "(
+                            SELECT AVG(Rating) 
+                            FROM productratings 
+                            WHERE PID = p.ProductID
+                        ) >= ?";
+                        $params[] = $value;
+                    } else {
+                        // Default to exact match for other fields
+                        $searchConditions[] = "p.$column = ?";
+                        $params[] = $value;
                     }
                 }
-
-                if (!empty($searchConditions)) {
-                    $query .= " WHERE " . implode(" AND ", $searchConditions);
-                }
             }
-            
-            // Handle limit - must be cast to int and concatenated directly
-            $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 800) : 50;
-            $query .= " LIMIT " . (int)$limit;
 
-            $stmt = $this->db->prepare($query);
-            $stmt->execute($params);
-            $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            $this->sendSuccess($products);
-        } catch (PDOException $e) {
-            throw new Exception("Database error: " . $e->getMessage(), 500);
+            if (!empty($searchConditions)) {
+                $query .= " WHERE " . implode(" AND ", $searchConditions);
+            }
         }
+        
+        // Add LEFT JOIN for listings if not already in search conditions
+        if (strpos($query, 'l.price') === false) {
+            $query .= " LEFT JOIN listings l ON p.ProductID=l.ProductID";
+        }
+        
+        // Group by product ID for the average rating calculation
+        $query .= " GROUP BY p.ProductID";
+        
+        // Handle sorting
+        if (isset($data['sort'])) {
+            $validSortColumns = ['Name', 'averageRating', 'ratingCount'];
+            $sort = $data['sort'];
+            $order = isset($data['order']) && strtoupper($data['order']) === 'DESC' ? 'DESC' : 'ASC';
+            
+            if (in_array($sort, $validSortColumns)) {
+                $query .= " ORDER BY $sort $order";
+            }
+        }
+        
+        // Handle limit
+        $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 800) : 50;
+        $query .= " LIMIT " . (int)$limit;
+
+        $stmt = $this->db->prepare($query);
+        $stmt->execute($params);
+        $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $this->sendSuccess($products);
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
     }
+}
 
     // CREATE: Add new admin
 private function handleUniversalCreate($data) {
@@ -882,8 +913,16 @@ private function handleListAdmins($data) {
     $tableStructures = [
         'products' => [
             'fields' => ['products.ProductID', 'Name', 'Brand', 'Category'],
-            'columns' => ['products.ProductID', 'Name', 'Description', 'Brand', 'Category', 'Thumbnail'],
-            'filterable' => ['Brand', 'Category'] // Added filterable fields
+            'columns' => [
+                'products.ProductID', 'Name', 'Description', 'Brand', 'Category', 'Thumbnail',
+                'COALESCE(AVG(productratings.Rating), 0) as averageRating',
+                'COUNT(productratings.Rating) as ratingCount'
+            ],
+            'filterable' => ['Brand', 'Category'],
+            'joins' => [
+                'productratings' => ['products.ProductID' => 'productratings.PID']
+            ],
+            'sortable' => ['averageRating', 'ratingCount'] // Added filterable fields
         ],
         'retailers' => [
             'fields' => ['retailers.RetailerID', 'Name'],
