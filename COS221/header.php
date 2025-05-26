@@ -14,7 +14,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
     align-items: center;
     background-color: #747578;
     padding: 1rem 2rem;
-    box-shadow: 0 4px 5px #262626;
   }
 
   header>div {
@@ -46,7 +45,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
   }
 
   nav ul li:hover {
-    color: #2edf84;
+    color: #000;
   }
 
   nav ul li a:hover {
