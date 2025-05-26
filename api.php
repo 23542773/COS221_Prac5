@@ -98,6 +98,9 @@ class API {
                 case 'rating':
                     $this->handleRating($data);
                     break;
+                case 'admin':
+                    $this->handlAdmin($data);
+                    break;
                 default:
                     throw new Exception("Unknown API endpoint", 400);
             }
@@ -105,6 +108,248 @@ class API {
             $this->sendError($e->getMessage(), $e->getCode() ?: 500);
         }
     }
+
+    private function handlAdmin($data) {
+    // Validate API key
+    if (!isset($data['apikey'])) {
+        throw new Exception("API key is required", 400);
+    }
+    
+    if (!$this->validateApiKey($data['apikey'])) {
+        throw new Exception("Invalid API key", 401);
+    }
+    
+    // Check if user is admin - only admins can perform admin operations
+    if (!$this->isAdmin($data['apikey'])) {
+        throw new Exception("Access denied. Admin privileges required", 403);
+    }
+    
+    // Validate operation parameter
+    if (!isset($data['operation'])) {
+        throw new Exception("Operation parameter is required", 400);
+    }
+    
+    $operation = strtolower($data['operation']);
+    
+    switch ($operation) {
+        case 'create':
+            $this->handleCreateAdmin($data);
+            break; 
+        case 'get':
+            $this->handleGetAdmin($data);
+            break;
+        case 'update':
+            $this->handleUpdateAdmin($data);
+            break;
+        case 'delete':
+            $this->handleDeleteAdmin($data);
+            break;
+        case 'list':
+            $this->handleListAdmins($data);
+            break;
+        default:
+            throw new Exception("Invalid operation. Must be 'create', 'read', 'update', 'delete', or 'list'", 400);
+    }
+}
+
+    private function isAdmin($apiKey) {
+    try {
+        $stmt = $this->db->prepare("SELECT 1 FROM admin WHERE K = ?");
+        $stmt->execute([$apiKey]);
+        return $stmt->fetch() !== false;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+private function handleCreateAdmin($data) {
+    // Validate required fields
+    if (!isset($data['userApiKey']) || !isset($data['privilege'])) {
+        throw new Exception("userApiKey and privilege are required", 400);
+    }
+    
+    $userApiKey = $data['userApiKey'];
+    $privilege = $data['privilege'];
+    
+    // Validate privilege enum values
+    $validPrivileges = ['Super Admin', 'Listings Admin', 'User Admin'];
+    if (!in_array($privilege, $validPrivileges)) {
+        throw new Exception("Invalid privilege. Must be 'Super Admin', 'Listings Admin', or 'User Admin'", 400);
+    }
+    
+    try {
+        // Check if user exists
+        $stmt = $this->db->prepare("SELECT API_Key FROM users WHERE API_Key = ?");
+        $stmt->execute([$userApiKey]);//sends sql query
+        if (!$stmt->fetch()) {
+            throw new Exception("User not found", 404);
+        }
+        
+        // Check if user is already an admin
+        $stmt = $this->db->prepare("SELECT K FROM admin WHERE K = ?");
+        $stmt->execute([$userApiKey]);
+        if ($stmt->fetch()) {
+            throw new Exception("User is already an admin", 409);
+        }
+        
+        // Insert new admin record
+        $stmt = $this->db->prepare("INSERT INTO admin (K, Privilege) VALUES (?, ?)");
+        $stmt->execute([$userApiKey, $privilege]);
+        
+        $this->sendSuccess([
+            'message' => 'Admin created successfully',
+            'userApiKey' => $userApiKey,
+            'privilege' => $privilege
+        ]);
+        
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
+
+// READ: Get specific admin by API key
+private function handleGetAdmin($data) {
+    if (!isset($data['userApiKey'])) {
+        throw new Exception("userApiKey parameter is required", 400);
+    }
+
+    try {
+        $userApiKey = $data['userApiKey'];
+        $stmt = $this->db->prepare("
+            SELECT a.K, a.Privilege, u.Name, u.Surname, u.Email 
+            FROM admin a 
+            JOIN users u ON a.K = u.API_Key 
+            WHERE a.K = ?
+        ");
+        $stmt->execute([$userApiKey]);
+        $admin = $stmt->fetch(PDO::FETCH_ASSOC);
+        //fetches the next row from the result set of a PDO statement as an associative array.
+        
+        if (!$admin) {
+            throw new Exception("Admin not found", 404);
+        }
+        
+        $this->sendSuccess($admin);
+        
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
+
+// UPDATE: Update admin privilege
+private function handleUpdateAdmin($data) {
+    // Validate required fields
+    if (!isset($data['userApiKey']) || !isset($data['privilege'])) {
+        throw new Exception("userApiKey and privilege are required", 400);
+    }
+    
+    $userApiKey = $data['userApiKey'];
+    $privilege = $data['privilege'];
+    
+    // Validate privilege enum values
+    $validPrivileges = ['Super Admin', 'Listings Admin', 'User Admin'];
+    if (!in_array($privilege, $validPrivileges)) {
+        throw new Exception("Invalid privilege. Must be 'Super Admin', 'Listings Admin', or 'User Admin'", 400);
+    }
+    
+    try {
+        // Check if admin exists
+        $stmt = $this->db->prepare("SELECT K FROM admin WHERE K = ?");
+        $stmt->execute([$userApiKey]);
+        if (!$stmt->fetch()) {
+            throw new Exception("Admin not found", 404);
+        }
+        
+        // Update admin privilege
+        $stmt = $this->db->prepare("UPDATE admin SET Privilege = ? WHERE K = ?");
+        $stmt->execute([$privilege, $userApiKey]);
+        
+        $this->sendSuccess([
+            'message' => 'Admin updated successfully',
+            'userApiKey' => $userApiKey,
+            'privilege' => $privilege
+        ]);
+        
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
+
+// DELETE: Remove admin privileges
+private function handleDeleteAdmin($data) {
+    if (!isset($data['userApiKey'])) {
+        throw new Exception("userApiKey parameter is required", 400);
+    }
+    
+    try {
+        $userApiKey = $data['userApiKey'];
+        
+        // Prevent self-deletion
+        if ($userApiKey === $data['apikey']) {
+            throw new Exception("Cannot delete your own admin privileges", 403);
+        }
+        
+        // Check if admin exists
+        $stmt = $this->db->prepare("SELECT K FROM admin WHERE K = ?");
+        $stmt->execute([$userApiKey]);
+        if (!$stmt->fetch()) {
+            throw new Exception("Admin not found", 404);
+        }
+        
+        // Delete admin
+        $stmt = $this->db->prepare("DELETE FROM admin WHERE K = ?");
+        $stmt->execute([$userApiKey]);
+        
+        $this->sendSuccess([
+            'message' => 'Admin deleted successfully',
+            'userApiKey' => $userApiKey
+        ]);
+        
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
+
+// LIST: Get all admins
+private function handleListAdmins($data) {
+    try {
+        // Set limit with bounds 
+        $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 50) : 20;
+        $offset = isset($data['offset']) ? max(0, (int)$data['offset']) : 0;
+        
+        // Get total count
+        $stmt = $this->db->prepare("SELECT COUNT(*) as total FROM admin");
+        $stmt->execute();
+        $totalCount = $stmt->fetch()['total'];
+        
+        // Get admins with user information
+        $stmt = $this->db->prepare("
+            SELECT a.K, a.Privilege, u.Name, u.Surname, u.Email 
+            FROM admin a 
+            JOIN users u ON a.K = u.API_Key 
+            ORDER BY a.Privilege ASC, u.Name ASC 
+            LIMIT :limit OFFSET :offset
+        ");
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        
+        $admins = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $this->sendSuccess([
+            'admins' => $admins,
+            'pagination' => [
+                'total' => (int)$totalCount,
+                'limit' => $limit,
+                'offset' => $offset,
+                'hasMore' => ($offset + $limit) < $totalCount
+            ]
+        ]);
+        
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
 
     private function handleLogin($data) {
     if (!isset($data['Email']) || !isset($data['Password'])) {
