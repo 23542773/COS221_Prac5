@@ -131,8 +131,9 @@ class API {
         $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 100) : 50;
         
         // Get distinct categories
-        $stmt = $this->db->prepare("SELECT DISTINCT Category FROM categories ORDER BY Category ASC LIMIT ?");
-        $stmt->execute([$limit]);
+        $stmt = $this->db->prepare("SELECT DISTINCT Category FROM categories ORDER BY Category ASC LIMIT :limit");
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->execute();
         $categories = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
         
         $this->sendSuccess([
