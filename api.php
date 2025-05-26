@@ -98,6 +98,9 @@ class API {
                 case 'rating':
                     $this->handleRating($data);
                     break;
+                case 'wishlist':
+                    $this->handleWishlist($data);
+                    break;
                 default:
                     throw new Exception("Unknown API endpoint", 400);
             }
@@ -105,6 +108,106 @@ class API {
             $this->sendError($e->getMessage(), $e->getCode() ?: 500);
         }
     }
+
+
+    private function handleWishlist($data) {
+    // Validate required parameters
+    if (!isset($data['apikey']) || !isset($data['operation'])) {
+        throw new Exception("API key and operation parameters are required", 400);
+    }
+
+    $apiKey = $data['apikey'];
+    $operation = strtolower($data['operation']);
+
+    try {
+        // Verify API key exists
+        $stmt = $this->db->prepare("SELECT 1 FROM users WHERE API_Key = ?");
+        $stmt->execute([$apiKey]);
+        if (!$stmt->fetch()) {
+            throw new Exception("Invalid API key", 401);
+        }
+
+        switch ($operation) {
+            case 'get':
+                $this->handleGetWishlist($apiKey);
+                break;
+            case 'set':
+                if (!isset($data['ProductID'])) {
+                    throw new Exception("ProductID is required for set operation", 400);
+                }
+                $this->handleSetWishlist($apiKey, (int)$data['ProductID']);
+                break;
+            case 'unset':
+                if (!isset($data['ProductID'])) {
+                    throw new Exception("ProductID is required for unset operation", 400);
+                }
+                $this->handleUnsetWishlist($apiKey, (int)$data['ProductID']);
+                break;
+            default:
+                throw new Exception("Invalid operation. Must be 'get', 'set', or 'unset'", 400);
+        }
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
+
+private function handleGetWishlist($apiKey) {
+    // Get all wishlist items with product details
+    $stmt = $this->db->prepare("
+        SELECT w.ProductID, p.Name, p.Price, p.Thumbnail
+        FROM wishlist w
+        JOIN products p ON w.ProductID = p.ProductID
+        WHERE w.API_Key = ?
+        ORDER BY w.AddedAt DESC
+    ");
+    $stmt->execute([$apiKey]);
+    $wishlistItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $this->sendSuccess([
+        'wishlist' => $wishlistItems,
+        'count' => count($wishlistItems)
+    ]);
+}
+
+private function handleSetWishlist($apiKey, $productId) {
+    // Verify product exists
+    $stmt = $this->db->prepare("SELECT 1 FROM products WHERE ProductID = ?");
+    $stmt->execute([$productId]);
+    if (!$stmt->fetch()) {
+        throw new Exception("Product not found", 404);
+    }
+
+    // Check if already in wishlist
+    $stmt = $this->db->prepare("SELECT 1 FROM wishlist WHERE API_Key = ? AND ProductID = ?");
+    $stmt->execute([$apiKey, $productId]);
+    if ($stmt->fetch()) {
+        throw new Exception("Product already in wishlist", 409);
+    }
+
+    // Add to wishlist
+    $stmt = $this->db->prepare("INSERT INTO wishlist (API_Key, ProductID, AddedAt) VALUES (?, ?, NOW())");
+    $stmt->execute([$apiKey, $productId]);
+
+    $this->sendSuccess([
+        'message' => 'Product added to wishlist',
+        'productId' => $productId
+    ]);
+}
+
+private function handleUnsetWishlist($apiKey, $productId) {
+    // Remove from wishlist
+    $stmt = $this->db->prepare("DELETE FROM wishlist WHERE API_Key = ? AND ProductID = ?");
+    $stmt->execute([$apiKey, $productId]);
+
+    if ($stmt->rowCount() === 0) {
+        throw new Exception("Product not found in wishlist", 404);
+    }
+
+    $this->sendSuccess([
+        'message' => 'Product removed from wishlist',
+        'productId' => $productId
+    ]);
+}
 
     private function handleLogin($data) {
     if (!isset($data['Email']) || !isset($data['Password'])) {
@@ -133,22 +236,18 @@ class API {
             throw new Exception("Invalid email or password", 401);
         }
 
-        // Check admin privileges
-        $adminStmt = $this->db->prepare("SELECT Privilege FROM admin WHERE `K` = ?");
+        // Check if user is an admin by existence in admin table
+        $adminStmt = $this->db->prepare("SELECT 1 FROM admin WHERE `K` = ?");
         $adminStmt->execute([$user['API_Key']]);
-        $adminResult = $adminStmt->fetch();
+        $isAdmin = $adminStmt->fetch() ? true : false;
 
         $response = [
             'message' => 'Login successful',
             'apikey' => $user['API_Key'],
-            'name' => $user['Name'],    // Added name from database
-            'surname' => $user['Surname']  // Added surname from database
+            'name' => $user['Name'],
+            'surname' => $user['Surname'],
+            'isadmin' => $isAdmin
         ];
-
-        // Add admin privilege if user is admin
-        if ($adminResult) {
-            $response['privilege'] = $adminResult['Privilege'];
-        }
 
         $this->sendSuccess($response);
     } catch (PDOException $e) {
@@ -319,58 +418,305 @@ class API {
 }
 
     private function handleGetDistinct($data) {
-        if (!$this->validateApiKey($data['api'])) {
-            throw new Exception("Invalid API key", 401);
-        }
-        
-        if (!isset($data['type']) || $data['type'] !== 'GetDistinct') {
-            throw new Exception("Invalid type parameter", 400);
-        }
-        
-        if (!isset($data['field'])) {
-            throw new Exception("Field parameter is required", 400);
-        }
-        
-        $validFields = ['brand', 'categories', 'manufacturer', 'department', 'country_of_origin'];
-        if (!in_array($data['field'], $validFields)) {
-            throw new Exception("Invalid field parameter", 400);
-        }
-        
-        $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 20) : 10;
-        
-        // TODO: Fetch distinct values
-        
-        $this->sendSuccess([]);
+    // Validate API key
+    if (!isset($data['apikey'])) {
+        throw new Exception("API key is required", 400);
     }
 
-    private function handleRating($data) {
-        if (!$this->validateApiKey($data['api'])) {
-            throw new Exception("Invalid API key", 401);
-        }
-        
-        if (!isset($data['operation'])) {
-            throw new Exception("Operation parameter is required", 400);
-        }
-        
-        if ($data['operation'] === 'set') {
-            if (!isset($data['review'])) {
-                throw new Exception("Review parameter is required for set operation", 400);
-            }
-            
-            $review = (int)$data['review'];
-            if ($review < 1 || $review > 5) {
-                throw new Exception("Review must be between 1 and 5", 400);
-            }
-            
-            // TODO: Save review
-        } elseif ($data['operation'] === 'get') {
-            // TODO: Retrieve reviews
-        } else {
-            throw new Exception("Invalid operation", 400);
-        }
-        
-        $this->sendSuccess(['message' => 'Operation completed']);
+    // Verify API key exists
+    $stmt = $this->db->prepare("SELECT 1 FROM users WHERE API_Key = ?");
+    $stmt->execute([$data['apikey']]);
+    if (!$stmt->fetch()) {
+        throw new Exception("Invalid API key", 401);
     }
+
+    // Validate required parameters
+    if (!isset($data['table'])) {
+        throw new Exception("Table parameter is required", 400);
+    }
+
+    // Define table structures with all columns to return
+    $tableStructures = [
+        'products' => [
+            'fields' => ['products.ProductID', 'Name', 'Brand', 'Category'],
+            'columns' => ['products.ProductID', 'Name', 'Description', 'Brand', 'Category', 'Thumbnail'],
+            'filterable' => ['Brand', 'Category'] // Added filterable fields
+        ],
+        'retailers' => [
+            'fields' => ['retailers.RetailerID', 'Name'],
+            'columns' => ['retailers.RetailerID', 'Name', 'URL']
+        ],
+        'productratings' => [
+            'fields' => ['productratings.K', 'productratings.PID', 'Rating', 'Date'],
+            'columns' => ['productratings.K', 'productratings.PID', 'Rating', 'Comment', 'Date']
+        ],
+        'listings' => [
+            'fields' => ['listings.ProductID', 'listings.RID', 'quantity', 'price', 'remaining'],
+            'columns' => ['listings.ProductID', 'listings.RID', 'quantity', 'price', 'remaining'],
+            'joins' => [
+                'products' => ['listings.ProductID' => 'products.ProductID'],
+                'retailers' => ['listings.RID' => 'retailers.RetailerID']
+            ],
+            'sortable' => ['price'] // Added sortable fields
+        ],
+        'orders' => [
+            'fields' => ['orders.OrderID', 'orders.K', 'OrderDate', 'Total'],
+            'columns' => ['orders.OrderID', 'orders.K', 'OrderDate', 'Total'],
+            'joins' => [
+                'users' => ['orders.K' => 'users.API_Key']
+            ]
+        ]
+    ];
+
+    // Validate table
+    if (!array_key_exists($data['table'], $tableStructures)) {
+        throw new Exception("Invalid table specified", 400);
+    }
+
+    $table = $data['table'];
+    $tableConfig = $tableStructures[$table];
+    $columns = implode(', ', $tableConfig['columns']);
+
+    // Set limit
+    $limit = isset($data['limit']) ? max(1, (int)$data['limit']) : 10;
+
+    // Base FROM and JOINs
+    $query = "FROM $table";
+    if (isset($tableConfig['joins'])) {
+        foreach ($tableConfig['joins'] as $joinTable => $joinConditions) {
+            foreach ($joinConditions as $left => $right) {
+                $query .= " JOIN $joinTable ON $left = $right";
+            }
+        }
+    }
+
+    $params = [];
+    $whereConditions = [];
+
+    // Add filter conditions if provided (for products table)
+    if ($table === 'products' && isset($data['filter']) && is_array($data['filter'])) {
+        foreach ($data['filter'] as $field => $value) {
+            if (in_array($field, $tableConfig['filterable'])) {
+                $whereConditions[] = "$field = :filter_$field";
+                $params[":filter_$field"] = $value;
+            }
+        }
+    }
+
+    // Add search condition if applicable
+    if (isset($data['field']) && isset($data['search'])) {
+        if (!in_array($data['field'], $tableConfig['fields'])) {
+            throw new Exception("Invalid field for the specified table", 400);
+        }
+        $searchTerm = "%{$data['search']}%";
+        $whereConditions[] = "{$data['field']} LIKE :search";
+        $params[':search'] = $searchTerm;
+    } elseif (isset($data['field']) || isset($data['search'])) {
+        throw new Exception("Both field and search parameters must be provided together", 400);
+    }
+
+    // Add product ID filter for listings if provided
+    if ($table === 'listings' && isset($data['productId'])) {
+        $whereConditions[] = "listings.ProductID = :productId";
+        $params[':productId'] = (int)$data['productId'];
+    }
+
+    // Combine all WHERE conditions
+    if (!empty($whereConditions)) {
+        $query .= " WHERE " . implode(' AND ', $whereConditions);
+    }
+
+    // Add sorting if requested (for listings table)
+    $orderBy = '';
+    if ($table === 'listings' && isset($data['sort']) && $data['sort'] === 'price') {
+        $order = isset($data['order']) && strtoupper($data['order']) === 'DESC' ? 'DESC' : 'ASC';
+        $orderBy = " ORDER BY listings.price $order";
+    }
+
+    // Final SELECT with DISTINCT if no filtering
+    $selectClause = (isset($data['field']) && isset($data['search'])) || !empty($whereConditions)
+        ? "SELECT $columns"
+        : "SELECT DISTINCT $columns";
+
+    // Compose final query
+    $finalQuery = "$selectClause $query $orderBy LIMIT :limit";
+    $params[':limit'] = $limit;
+
+    // Prepare and execute
+    $stmt = $this->db->prepare($finalQuery);
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value, $key === ':limit' ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
+
+    $stmt->execute();
+    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $this->sendSuccess([
+        'table' => $table,
+        'count' => count($results),
+        'results' => $results
+    ]);
+}
+
+
+private function handleRating($data) {
+    // Validate API key
+    if (!isset($data['apikey'])) {
+        throw new Exception("API key is required", 400);
+    }
+    
+    if (!$this->validateApiKey($data['apikey'])) {
+        throw new Exception("Invalid API key", 401);
+    }
+    
+    // Validate operation parameter
+    if (!isset($data['operation'])) {
+        throw new Exception("Operation parameter is required", 400);
+    }
+    
+    $operation = strtolower($data['operation']);
+    
+    if ($operation === 'set') {
+        $this->handleSetRating($data);
+    } elseif ($operation === 'get') {
+        $this->handleGetRating($data);
+    } else {
+        throw new Exception("Invalid operation. Must be 'get' or 'set'", 400);
+    }
+}
+
+private function handleSetRating($data) {
+    if (!isset($data['rating']) || !isset($data['productId'])) {
+        throw new Exception("rating and Product ID are required", 400);
+    }
+
+    $rating = (int)$data['rating'];
+    $comment = isset($data['comment']) ? $data['comment'] : null;
+    if ($rating < 1 || $rating > 5) {
+        throw new Exception("rating must be between 1 and 5", 400);
+    }
+
+    $productId = (int)$data['productId'];
+    $apiKey = $data['apikey'];
+
+    try {
+        $stmt = $this->db->prepare("SELECT API_Key FROM users WHERE API_Key = ?");
+        $stmt->execute([$apiKey]);
+        if (!$stmt->fetch()) throw new Exception("Invalid API key", 401);
+
+        $stmt = $this->db->prepare("SELECT ProductID FROM products WHERE ProductID = ?");
+        $stmt->execute([$productId]);
+        if (!$stmt->fetch()) throw new Exception("Product not found", 404);
+
+        $stmt = $this->db->prepare("SELECT K FROM productratings WHERE K = ? AND PID = ?");
+        $stmt->execute([$apiKey, $productId]);
+        $existingRating = $stmt->fetch();
+
+        if ($existingRating) {
+            $stmt = $this->db->prepare("UPDATE productratings SET Rating = ?, Comment = ?, Date = NOW() WHERE K = ? AND PID = ?");
+            $stmt->execute([$rating, $comment, $apiKey, $productId]);
+            $message = "Rating updated successfully";
+        } else {
+            $stmt = $this->db->prepare("INSERT INTO productratings (K, PID, Rating, Comment, Date) VALUES (?, ?, ?, ?, NOW())");
+            $stmt->execute([$apiKey, $productId, $rating, $comment]);
+            $message = "Rating added successfully";
+        }
+
+        $stmt = $this->db->prepare("SELECT AVG(Rating) as avg_rating, COUNT(*) as total_ratings FROM productratings WHERE PID = ?");
+        $stmt->execute([$productId]);
+        $ratingStats = $stmt->fetch();
+
+        $this->sendSuccess([
+            'message' => $message,
+            'productId' => $productId,
+            'userRating' => $rating,
+            'averageRating' => round($ratingStats['avg_rating'], 2),
+            'totalRatings' => (int)$ratingStats['total_ratings']
+        ]);
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
+
+private function handleGetRating($data) {
+    try {
+        // Validate that we have at least one identifier
+        if (!isset($data['productId']) && !isset($data['apikey'])) {
+            throw new Exception("Either productId or apikey parameter is required", 400);
+        }
+
+        // If productId is provided, get all ratings for that product
+        if (isset($data['productId'])) {
+            $productId = (int)$data['productId'];
+
+            // Verify product exists
+            $stmt = $this->db->prepare("SELECT ProductID FROM products WHERE ProductID = ?");
+            $stmt->execute([$productId]);
+            if (!$stmt->fetch()) {
+                throw new Exception("Product not found", 404);
+            }
+
+            // Get all ratings for the product with user names
+            $stmt = $this->db->prepare("
+                SELECT r.Rating, r.Comment, r.Date, u.Name 
+                FROM productratings r 
+                JOIN users u ON r.K = u.API_Key 
+                WHERE r.PID = ? 
+                ORDER BY r.Date DESC
+            ");
+            $stmt->execute([$productId]);
+            $ratings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Get rating statistics
+            $stmt = $this->db->prepare("
+                SELECT AVG(Rating) as avg_rating, COUNT(*) as total_ratings 
+                FROM productratings 
+                WHERE PID = ?
+            ");
+            $stmt->execute([$productId]);
+            $ratingStats = $stmt->fetch();
+
+            $response = [
+                'productId' => $productId,
+                'averageRating' => $ratingStats['avg_rating'] ? round($ratingStats['avg_rating'], 2) : 0,
+                'totalRatings' => (int)$ratingStats['total_ratings'],
+                'ratings' => $ratings
+            ];
+        } 
+        // If only apikey is provided, get all ratings by that user
+        else {
+            $apiKey = $data['apikey'];
+
+            // Verify API key exists
+            $stmt = $this->db->prepare("SELECT 1 FROM users WHERE API_Key = ?");
+            $stmt->execute([$apiKey]);
+            if (!$stmt->fetch()) {
+                throw new Exception("Invalid API key", 401);
+            }
+
+            // Get all ratings left by this user with product names
+            $stmt = $this->db->prepare("
+                SELECT r.PID as productId, r.Rating, r.Comment, r.Date, p.Name AS productName 
+                FROM productratings r 
+                JOIN products p ON r.PID = p.ProductID 
+                WHERE r.K = ? 
+                ORDER BY r.Date DESC
+            ");
+            $stmt->execute([$apiKey]);
+            $userRatings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $response = [
+                'userId' => $apiKey,
+                'userRatings' => $userRatings,
+                'totalUserRatings' => count($userRatings)
+            ];
+        }
+
+        $this->sendSuccess($response);
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
 
     private function generateApiKey() {
         return bin2hex(random_bytes(16));
