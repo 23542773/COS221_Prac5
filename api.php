@@ -156,11 +156,11 @@ class API {
 private function handleGetWishlist($apiKey) {
     // Get all wishlist items with product details
     $stmt = $this->db->prepare("
-        SELECT p.ProductID, p.Name, p.Price, p.Thumbnail
-        FROM wishlist w
-        JOIN products p ON w.PID = p.ProductID
-        WHERE w.K = ?
-        ORDER BY w.AddedAt DESC
+        SELECT ProductID, Name, Price, Thumbnail
+        FROM wishlist 
+        JOIN products p ON PID = ProductID
+        WHERE K = ?
+        ORDER BY AddedAt DESC
     ");
     $stmt->execute([$apiKey]);
     $wishlistItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
