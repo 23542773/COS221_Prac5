@@ -306,7 +306,15 @@ private function isAdmin($apiKey) {
 }
 
     private function handleGetAllProducts($data) {
+
+        if (!isset($data['apikey'])) {
+            throw new Exception("API key is required", 400);
+        }
         
+        if (!$this->validateApiKey($data['apikey'])) {
+            throw new Exception("Invalid API key", 401);
+        }
+
         try {
 
             $query = "SELECT * FROM products p LEFT JOIN listings l ON p.ProductID=l.ProductID";
@@ -343,20 +351,20 @@ private function isAdmin($apiKey) {
                     $query .= " WHERE " . implode(" AND ", $searchConditions);
                 }
             }
-            
-            if (isset($data->sort)) {//Sort
-
+            // $this->sendSuccess([]);
+            if (isset($data["sort"])) {//Sort
+// $this->sendSuccess([]);
                 $validSortColumns = ['ProductID', 'Name', 'Description', 'Brand', 'Category', 'quantity', 'price'];
 
                 //if provided sort fields are in valid sort columns
-                if (in_array($data->sort, $validSortColumns)) {
-
-                    $query .= " ORDER BY " . $data->sort;
+                if (in_array($data["sort"], $validSortColumns)) {
+                    
+                    $query .= " ORDER BY " . $data["sort"];
 
                     //Check if direction is set, and set it | DEFAULT: ASC
-                    if (isset($data->order)) {
+                    if (isset($data["order"])) {
 
-                        $order = strtoupper($data->order);
+                        $order = strtoupper($data["order"]);
 
                         if ($order === 'ASC' || $order === 'DESC') {
                             $query .= " " . $order;
