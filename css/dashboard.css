@@ -10,15 +10,29 @@
 #preferences {
   position: absolute;
   width: 20vw;
-
   top: 100px;
   left: 0px;
   bottom: 0px;
+  display: flex;
+  flex-direction: column;
+  padding-left: 1vw;
   background-color: #747578;
 }
 
 #preferences.hide {
   transform: translateX(-100%);
+}
+
+#prefH1 {
+  margin: 0;
+  margin-top: 1vh;
+  font-size: 2em;
+}
+
+.prefHeading {
+  margin: 0;
+  margin-top: 2vh;
+  font-size: 1.5em;
 }
 
 #togglePreferences {
@@ -27,5 +41,50 @@
   left: 100%;
   width: 20px;
   height: 20px;
-  background-color: #132a13;
+  background-color: #2edf84;
+}
+
+.toggle-container {
+  margin-right: 1vw;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.toggle-checkbox {
+  display: none;
+}
+
+.toggle-label {
+  display: block;
+  width: 60px;
+  height: 30px;
+  background-color: #ccc;
+  border-radius: 15px;
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+/* Create the "thumb" or "slider" of the toggle */
+.toggle-label::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  background-color: #fff;
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+}
+
+/* When the checkbox IS CHECKED */
+.toggle-checkbox:checked + .toggle-label {
+  background-color: #132A13;
+}
+
+/* Move the thumb to the right when checked */
+.toggle-checkbox:checked + .toggle-label::before {
+  transform: translateX(30px);
 }

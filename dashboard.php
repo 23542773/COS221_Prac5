@@ -19,11 +19,18 @@
 
     <div class="page">
         <div id="preferences">
-            <!-- just filler buttons for now -->
-            <button>theme</button>
+            <div id="togglePreferences"></div> <!-- preferences hide and show button -->
+            <p id="prefH1">Preferences</p>
+            <p class="prefHeading">Theme</p>
+            <div class="toggle-container">
+                <input type="checkbox" id="darkModeToggle" class="toggle-checkbox">
+                <label for="darkModeToggle" class="toggle-label"></label>
+                <span id="themeName">Light</span>
+            </div>
+            <p class="prefHeading">Sort</p>
             <button>sort</button>
-            <button>display name</button>
-            <div id="togglePreferences"></div>
+            <p class="prefHeading">Display Name</p>
+            <input type="text" id="displayName">
         </div>
 
         <div class="topProducts">
