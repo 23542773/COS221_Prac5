@@ -442,14 +442,14 @@ private function isAdmin($apiKey) {
 
     private function handleGetAllProducts($data) {
     // Validate API key first
-    if (!isset($data['api'])) {
+    if (!isset($data['apikey'])) {
         throw new Exception("API key is required", 400);
     }
     
     try {
         // Verify API key exists in database
         $stmt = $this->db->prepare("SELECT 1 FROM users WHERE API_Key = ?");
-        $stmt->execute([$data['api']]);
+        $stmt->execute([$data['apikey']]);
         if (!$stmt->fetch()) {
             throw new Exception("Invalid API key", 401);
         }
@@ -459,12 +459,13 @@ private function isAdmin($apiKey) {
                  COALESCE(AVG(pr.Rating), 0) as averageRating,
                  COUNT(pr.Rating) as ratingCount
                  FROM products p 
-                 LEFT JOIN productratings pr ON p.ProductID = pr.PID";
+                 LEFT JOIN productratings pr ON p.ProductID = pr.PID
+                 LEFT JOIN listings l ON p.ProductID=l.ProductID";
         $params = [];
+        $whereConditions = [];
         
         // Handle search parameters
         if (isset($data['search']) && is_array($data['search'])) {
-            $searchConditions = [];
             $validSearchColumns = [
                 'ProductID', 'Name', 'Description', 'Brand', 'Category', 
                 'quantity', 'priceMin', 'priceMax', 'minRating'
@@ -473,16 +474,16 @@ private function isAdmin($apiKey) {
             foreach ($data['search'] as $column => $value) {
                 if (in_array($column, $validSearchColumns)) {
                     if ($column === "ProductID") {
-                        $searchConditions[] = "p.ProductID = ?";
+                        $whereConditions[] = "p.ProductID = ?";
                         $params[] = $value;
                     } elseif ($column === "priceMin") {
-                        $searchConditions[] = "l.price >= ?";
+                        $whereConditions[] = "l.price >= ?";
                         $params[] = $value;
                     } elseif ($column === "priceMax") {
-                        $searchConditions[] = "l.price <= ?";
+                        $whereConditions[] = "l.price <= ?";
                         $params[] = $value;
                     } elseif ($column === "minRating") {
-                        $searchConditions[] = "(
+                        $whereConditions[] = "(
                             SELECT AVG(Rating) 
                             FROM productratings 
                             WHERE PID = p.ProductID
@@ -490,20 +491,16 @@ private function isAdmin($apiKey) {
                         $params[] = $value;
                     } else {
                         // Default to exact match for other fields
-                        $searchConditions[] = "p.$column = ?";
+                        $whereConditions[] = "p.$column = ?";
                         $params[] = $value;
                     }
                 }
             }
-
-            if (!empty($searchConditions)) {
-                $query .= " WHERE " . implode(" AND ", $searchConditions);
-            }
         }
         
-        // Add LEFT JOIN for listings if not already in search conditions
-        if (strpos($query, 'l.price') === false) {
-            $query .= " LEFT JOIN listings l ON p.ProductID=l.ProductID";
+        // Add WHERE clause if we have conditions
+        if (!empty($whereConditions)) {
+            $query .= " WHERE " . implode(" AND ", $whereConditions);
         }
         
         // Group by product ID for the average rating calculation
@@ -511,7 +508,7 @@ private function isAdmin($apiKey) {
         
         // Handle sorting
         if (isset($data['sort'])) {
-            $validSortColumns = ['Name', 'averageRating', 'ratingCount'];
+            $validSortColumns = ['Name', 'averageRating', 'ratingCount', 'price'];
             $sort = $data['sort'];
             $order = isset($data['order']) && strtoupper($data['order']) === 'DESC' ? 'DESC' : 'ASC';
             
@@ -891,7 +888,7 @@ private function handleListAdmins($data) {
     }
 }
 
-    private function handleGetDistinct($data) {
+   private function handleGetDistinct($data) {
     // Validate API key
     if (!isset($data['apikey'])) {
         throw new Exception("API key is required", 400);
@@ -922,7 +919,7 @@ private function handleListAdmins($data) {
             'joins' => [
                 'productratings' => ['products.ProductID' => 'productratings.PID']
             ],
-            'sortable' => ['averageRating', 'ratingCount'] // Added filterable fields
+            'sortable' => ['averageRating', 'ratingCount', 'Name', 'Brand', 'Category']
         ],
         'retailers' => [
             'fields' => ['retailers.RetailerID', 'Name'],
@@ -948,7 +945,7 @@ private function handleListAdmins($data) {
                 'users' => ['orders.K' => 'users.API_Key']
             ]
         ]
-    ];
+    ]; 
 
     // Validate table
     if (!array_key_exists($data['table'], $tableStructures)) {
@@ -975,8 +972,8 @@ private function handleListAdmins($data) {
     $params = [];
     $whereConditions = [];
 
-    // Add filter conditions if provided (for products table)
-    if ($table === 'products' && isset($data['filter']) && is_array($data['filter'])) {
+    // Add filter conditions if provided
+    if (isset($data['filter']) && is_array($data['filter'])) {
         foreach ($data['filter'] as $field => $value) {
             if (in_array($field, $tableConfig['filterable'])) {
                 $whereConditions[] = "$field = :filter_$field";
@@ -997,10 +994,14 @@ private function handleListAdmins($data) {
         throw new Exception("Both field and search parameters must be provided together", 400);
     }
 
-    // Add product ID filter for listings if provided
-    if ($table === 'listings' && isset($data['productId'])) {
-        $whereConditions[] = "listings.ProductID = :productId";
-        $params[':productId'] = (int)$data['productId'];
+    // Add min rating filter for products
+    if ($table === 'products' && isset($data['minRating'])) {
+        $whereConditions[] = "(
+            SELECT AVG(Rating) 
+            FROM productratings 
+            WHERE PID = products.ProductID
+        ) >= :minRating";
+        $params[':minRating'] = (float)$data['minRating'];
     }
 
     // Combine all WHERE conditions
@@ -1008,17 +1009,20 @@ private function handleListAdmins($data) {
         $query .= " WHERE " . implode(' AND ', $whereConditions);
     }
 
-    // Add sorting if requested (for listings table)
-    $orderBy = '';
-    if ($table === 'listings' && isset($data['sort']) && $data['sort'] === 'price') {
-        $order = isset($data['order']) && strtoupper($data['order']) === 'DESC' ? 'DESC' : 'ASC';
-        $orderBy = " ORDER BY listings.price $order";
+    // Group by for products table to calculate averages
+    if ($table === 'products') {
+        $query .= " GROUP BY products.ProductID";
     }
 
-    // Final SELECT with DISTINCT if no filtering
-    $selectClause = (isset($data['field']) && isset($data['search'])) || !empty($whereConditions)
-        ? "SELECT $columns"
-        : "SELECT DISTINCT $columns";
+    // Handle sorting
+    $orderBy = '';
+    if (isset($data['sort']) && in_array($data['sort'], $tableConfig['sortable'] ?? [])) {
+        $order = isset($data['order']) && strtoupper($data['order']) === 'DESC' ? 'DESC' : 'ASC';
+        $orderBy = " ORDER BY {$data['sort']} $order";
+    }
+
+    // Final SELECT
+    $selectClause = "SELECT $columns";
 
     // Compose final query
     $finalQuery = "$selectClause $query $orderBy LIMIT :limit";
