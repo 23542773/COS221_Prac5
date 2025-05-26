@@ -305,87 +305,95 @@ private function isAdmin($apiKey) {
     }
 }
 
-    private function handleGetAllProducts($data) {
+private function handleGetAllProducts($data) {
+    if (!isset($data['apikey'])) {
+        throw new Exception("API key is required", 400);
+    }
+    
+    if (!$this->validateApiKey($data['apikey'])) {
+        throw new Exception("Invalid API key", 401);
+    }
 
-        if (!isset($data['apikey'])) {
-            throw new Exception("API key is required", 400);
+    try {
+        $query = "SELECT p.*, l.*";
+        
+        if (isset($data['Best'])) {
+            $query .= ", AVG(pr.Rating) as average_rating";
         }
         
-        if (!$this->validateApiKey($data['apikey'])) {
-            throw new Exception("Invalid API key", 401);
+        $query .= " FROM products p LEFT JOIN listings l ON p.ProductID=l.ProductID";
+        
+        if (isset($data['Best'])) {
+            $query .= " LEFT JOIN productratings pr ON p.ProductID=pr.PID";
         }
+        
+        $params = [];
+        
+        if (isset($data['search']) && is_array($data['search'])) {
+            $searchConditions = [];
+            $validSearchColumns = [
+                'ProductID', 'Name', 'Description', 'Brand', 'Category', 
+                'quantity', 'priceMin', 'priceMax'
+            ];
 
-        try {
-
-            $query = "SELECT * FROM products p LEFT JOIN listings l ON p.ProductID=l.ProductID";
-            $params = [];
-            
-            // Handle search parameters
-            if (isset($data['search']) && is_array($data['search'])) {
-                $searchConditions = [];
-                $validSearchColumns = [
-                    'ProductID', 'Name', 'Description', 'Brand', 'Category', 
-                    'quantity', 'priceMin', 'priceMax'
-                ];
-
-                foreach ($data['search'] as $column => $value) {
-                    if (in_array($column, $validSearchColumns)) {
-                        if ($column === "ProductID") {
-                            $searchConditions[] = "p.ProductID = ?";
-                            $params[] = $value;
-                        } elseif ($column === "priceMin") {
-                            $searchConditions[] = "l.price >= ?";
-                            $params[] = $value;
-                        } elseif ($column === "priceMax") {
-                            $searchConditions[] = "l.price <= ?";
-                            $params[] = $value;
-                        } else {
-                            // Default to exact match for other fields
-                            $searchConditions[] = "$column = ?";
-                            $params[] = $value;
-                        }
+            foreach ($data['search'] as $column => $value) {
+                if (in_array($column, $validSearchColumns)) {
+                    if ($column === "ProductID") {
+                        $searchConditions[] = "p.ProductID = ?";
+                        $params[] = $value;
+                    } elseif ($column === "priceMin") {
+                        $searchConditions[] = "l.price >= ?";
+                        $params[] = $value;
+                    } elseif ($column === "priceMax") {
+                        $searchConditions[] = "l.price <= ?";
+                        $params[] = $value;
+                    } else {
+                        $searchConditions[] = "$column = ?";
+                        $params[] = $value;
                     }
-                }
-
-                if (!empty($searchConditions)) {
-                    $query .= " WHERE " . implode(" AND ", $searchConditions);
                 }
             }
-            // $this->sendSuccess([]);
-            if (isset($data["sort"])) {//Sort
-// $this->sendSuccess([]);
-                $validSortColumns = ['ProductID', 'Name', 'Description', 'Brand', 'Category', 'quantity', 'price'];
 
-                //if provided sort fields are in valid sort columns
-                if (in_array($data["sort"], $validSortColumns)) {
-                    
-                    $query .= " ORDER BY " . $data["sort"];
-
-                    //Check if direction is set, and set it | DEFAULT: ASC
-                    if (isset($data["order"])) {
-
-                        $order = strtoupper($data["order"]);
-
-                        if ($order === 'ASC' || $order === 'DESC') {
-                            $query .= " " . $order;
-                        }
+            if (!empty($searchConditions)) {
+                $query .= " WHERE " . implode(" AND ", $searchConditions);
+            }
+        }
+        
+        if (isset($data['Best'])) {
+            $query .= " GROUP BY p.ProductID";
+        }
+        
+        if (isset($data["sort"])) {
+            $validSortColumns = ['ProductID', 'Name', 'Description', 'Brand', 'Category', 'quantity', 'price'];
+            
+            if (in_array($data["sort"], $validSortColumns)) {
+                $query .= " ORDER BY " . $data["sort"];
+                
+                if (isset($data["order"])) {
+                    $order = strtoupper($data["order"]);
+                    if ($order === 'ASC' || $order === 'DESC') {
+                        $query .= " " . $order;
                     }
                 }
-            }//END_Sort
-
-            // Handle limit - must be cast to int and concatenated directly
-            $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 800) : 50;
-            $query .= " LIMIT " . (int)$limit;
-
-            $stmt = $this->db->prepare($query);
-            $stmt->execute($params);
-            $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            $this->sendSuccess($products);
-        } catch (PDOException $e) {
-            throw new Exception("Database error: " . $e->getMessage(), 500);
+            }
         }
+        
+        if (isset($data['Best']) && !isset($data["sort"])) {
+            $query .= " ORDER BY average_rating DESC";
+        }
+        
+        $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 800) : 50;
+        $query .= " LIMIT " . (int)$limit;
+
+        $stmt = $this->db->prepare($query);
+        $stmt->execute($params);
+        $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $this->sendSuccess($products);
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
     }
+}
 
     // CREATE: Add new admin
 private function handleCreateAdmin($data) {
