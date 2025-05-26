@@ -507,13 +507,23 @@ private function handleSetRating($data) {
 
 private function handleGetRating($data) {
     try {
+        // Validate that we have at least one identifier
+        if (!isset($data['productId']) && !isset($data['apikey'])) {
+            throw new Exception("Either productId or apikey parameter is required", 400);
+        }
+
+        // If productId is provided, get all ratings for that product
         if (isset($data['productId'])) {
             $productId = (int)$data['productId'];
 
+            // Verify product exists
             $stmt = $this->db->prepare("SELECT ProductID FROM products WHERE ProductID = ?");
             $stmt->execute([$productId]);
-            if (!$stmt->fetch()) throw new Exception("Product not found", 404);
+            if (!$stmt->fetch()) {
+                throw new Exception("Product not found", 404);
+            }
 
+            // Get all ratings for the product with user names
             $stmt = $this->db->prepare("
                 SELECT r.Rating, r.Comment, r.Date, u.Name 
                 FROM productratings r 
@@ -524,7 +534,12 @@ private function handleGetRating($data) {
             $stmt->execute([$productId]);
             $ratings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            $stmt = $this->db->prepare("SELECT AVG(Rating) as avg_rating, COUNT(*) as total_ratings FROM productratings WHERE PID = ?");
+            // Get rating statistics
+            $stmt = $this->db->prepare("
+                SELECT AVG(Rating) as avg_rating, COUNT(*) as total_ratings 
+                FROM productratings 
+                WHERE PID = ?
+            ");
             $stmt->execute([$productId]);
             $ratingStats = $stmt->fetch();
 
@@ -534,11 +549,21 @@ private function handleGetRating($data) {
                 'totalRatings' => (int)$ratingStats['total_ratings'],
                 'ratings' => $ratings
             ];
-        } else {
+        } 
+        // If only apikey is provided, get all ratings by that user
+        else {
             $apiKey = $data['apikey'];
 
+            // Verify API key exists
+            $stmt = $this->db->prepare("SELECT 1 FROM users WHERE API_Key = ?");
+            $stmt->execute([$apiKey]);
+            if (!$stmt->fetch()) {
+                throw new Exception("Invalid API key", 401);
+            }
+
+            // Get all ratings left by this user with product names
             $stmt = $this->db->prepare("
-                SELECT r.PID, r.Rating, r.Comment, r.Date, p.Name AS ProductName 
+                SELECT r.PID as productId, r.Rating, r.Comment, r.Date, p.Name AS productName 
                 FROM productratings r 
                 JOIN products p ON r.PID = p.ProductID 
                 WHERE r.K = ? 
@@ -548,6 +573,7 @@ private function handleGetRating($data) {
             $userRatings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             $response = [
+                'userId' => $apiKey,
                 'userRatings' => $userRatings,
                 'totalUserRatings' => count($userRatings)
             ];
