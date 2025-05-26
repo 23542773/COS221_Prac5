@@ -327,8 +327,6 @@ private function isAdmin($apiKey) {
             }
         }
         
-        // TODO: Execute query
-        
         $this->sendSuccess([]);
     }
     // CREATE: Add new admin
