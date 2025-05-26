@@ -19,7 +19,6 @@
 
     <div class="page">
         <div id="preferences">
-            <div id="togglePreferences"></div> <!-- preferences hide and show button -->
             <p id="prefH1">Preferences</p>
             <p class="prefHeading">Theme</p>
             <div class="toggle-container">
@@ -32,12 +31,17 @@
             <input type="text" id="displayName">
         </div>
 
-        <div class="topProducts">
-
+        <div id="topProducts">
+            <p>Top Rated Products</p>
+            <div class="product-container">
+                <div class="product"></div>
+                <div class="product"></div>
+                <div class="product"></div>
+            </div>
         </div>
 
-        <div class="ratings">
-
+        <div id="rating-container">
+            <p>Your reviews</p>
         </div>
     </div>
 
