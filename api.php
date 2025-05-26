@@ -306,18 +306,8 @@ private function isAdmin($apiKey) {
 }
 
     private function handleGetAllProducts($data) {
-        // Validate API key first
-        if (!isset($data['api'])) {
-            throw new Exception("API key is required", 400);
-        }
         
         try {
-            // Verify API key exists in database
-            $stmt = $this->db->prepare("SELECT 1 FROM users WHERE API_Key = ?");
-            $stmt->execute([$data['api']]);
-            if (!$stmt->fetch()) {
-                throw new Exception("Invalid API key", 401);
-            }
 
             $query = "SELECT * FROM products p LEFT JOIN listings l ON p.ProductID=l.ProductID";
             $params = [];
@@ -354,6 +344,27 @@ private function isAdmin($apiKey) {
                 }
             }
             
+            if (isset($data->sort)) {//Sort
+
+                $validSortColumns = ['ProductID', 'Name', 'Description', 'Brand', 'Category', 'quantity', 'price'];
+
+                //if provided sort fields are in valid sort columns
+                if (in_array($data->sort, $validSortColumns)) {
+
+                    $query .= " ORDER BY " . $data->sort;
+
+                    //Check if direction is set, and set it | DEFAULT: ASC
+                    if (isset($data->order)) {
+
+                        $order = strtoupper($data->order);
+
+                        if ($order === 'ASC' || $order === 'DESC') {
+                            $query .= " " . $order;
+                        }
+                    }
+                }
+            }//END_Sort
+
             // Handle limit - must be cast to int and concatenated directly
             $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 800) : 50;
             $query .= " LIMIT " . (int)$limit;
