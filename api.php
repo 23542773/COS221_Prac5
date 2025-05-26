@@ -101,9 +101,13 @@ class API {
                  case 'admin':
                     $this->handlAdmin($data);
                     break;
+                case 'getAllCategories':
+                    $this->handleGetAllCategories($data);
+                    break;
                 case 'wishlist':
                     $this->handleWishlist($data);
                     break;
+                
                 default:
                     throw new Exception("Unknown API endpoint", 400);
             }
@@ -111,6 +115,34 @@ class API {
             $this->sendError($e->getMessage(), $e->getCode() ?: 500);
         }
     }
+
+    private function handleGetAllCategories($data) {
+    // Validate API key
+    if (!isset($data['apikey'])) {
+        throw new Exception("API key is required", 400);
+    }
+    
+    if (!$this->validateApiKey($data['apikey'])) {
+        throw new Exception("Invalid API key", 401);
+    }
+
+    try {
+        // Set default limit with bounds (1-100)
+        $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 100) : 50;
+        
+        // Get distinct categories
+        $stmt = $this->db->prepare("SELECT DISTINCT Category FROM categories ORDER BY Category ASC LIMIT ?");
+        $stmt->execute([$limit]);
+        $categories = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+        
+        $this->sendSuccess([
+            'count' => count($categories),
+            'categories' => $categories
+        ]);
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
 
     private function handleWishlist($data) {
     // Validate required parameters
