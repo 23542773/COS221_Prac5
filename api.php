@@ -544,15 +544,18 @@ private function handleUnsetWishlist($apiKey, $productId) {
             'joins' => [
                 'productratings' => ['products.ProductID' => 'productratings.PID']
             ],
-            'sortable' => ['averageRating', 'ratingCount', 'Name', 'Brand', 'Category']
+            'sortable' => ['averageRating', 'ratingCount', 'Name', 'Brand', 'Category'],
+            'idFields' => ['products.ProductID'] // Specify which fields are IDs
         ],
         'retailers' => [
             'fields' => ['retailers.RetailerID', 'Name'],
-            'columns' => ['retailers.RetailerID', 'Name', 'URL']
+            'columns' => ['retailers.RetailerID', 'Name', 'URL'],
+            'idFields' => ['retailers.RetailerID']
         ],
         'productratings' => [
             'fields' => ['productratings.K', 'productratings.PID', 'Rating', 'Date'],
-            'columns' => ['productratings.K', 'productratings.PID', 'Rating', 'Comment', 'Date']
+            'columns' => ['productratings.K', 'productratings.PID', 'Rating', 'Comment', 'Date'],
+            'idFields' => ['productratings.K', 'productratings.PID']
         ],
         'listings' => [
             'fields' => ['listings.ProductID', 'listings.RID', 'quantity', 'price', 'remaining'],
@@ -561,14 +564,16 @@ private function handleUnsetWishlist($apiKey, $productId) {
                 'products' => ['listings.ProductID' => 'products.ProductID'],
                 'retailers' => ['listings.RID' => 'retailers.RetailerID']
             ],
-            'sortable' => ['price'] // Added sortable fields
+            'sortable' => ['price'],
+            'idFields' => ['listings.ProductID', 'listings.RID']
         ],
         'orders' => [
             'fields' => ['orders.OrderID', 'orders.K', 'OrderDate', 'Total'],
             'columns' => ['orders.OrderID', 'orders.K', 'OrderDate', 'Total'],
             'joins' => [
                 'users' => ['orders.K' => 'users.API_Key']
-            ]
+            ],
+            'idFields' => ['orders.OrderID', 'orders.K']
         ]
     ]; 
 
@@ -612,9 +617,18 @@ private function handleUnsetWishlist($apiKey, $productId) {
         if (!in_array($data['field'], $tableConfig['fields'])) {
             throw new Exception("Invalid field for the specified table", 400);
         }
-        $searchTerm = "{$data['search']}";
-        $whereConditions[] = "{$data['field']} LIKE :search";
-        $params[':search'] = $searchTerm;
+        
+        // Check if this is an ID field (exact match) or regular field (fuzzy search)
+        if (isset($tableConfig['idFields']) && in_array($data['field'], $tableConfig['idFields'])) {
+            // Exact match for ID fields
+            $whereConditions[] = "{$data['field']} = :search";
+            $params[':search'] = $data['search'];
+        } else {
+            // Fuzzy search for non-ID fields
+            $searchTerm = "%{$data['search']}%";
+            $whereConditions[] = "{$data['field']} LIKE :search";
+            $params[':search'] = $searchTerm;
+        }
     } elseif (isset($data['field']) || isset($data['search'])) {
         throw new Exception("Both field and search parameters must be provided together", 400);
     }
