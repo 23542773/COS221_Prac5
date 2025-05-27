@@ -1,18 +1,20 @@
 <?php
-session_start(); 
+session_start();
 $isLoggedIn = isset($_SESSION['anapikey']);
-$username = $isLoggedIn ? $_SESSION['username'] : ''; 
+$username = $isLoggedIn ? $_SESSION['username'] : '';
 $current_page = basename($_SERVER['PHP_SELF']);
 ?>
 
 <style>
   header {
+    position: fixed;
     width: 100vw;
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: #fcfaf9;
+    background-color: #747578;
     padding: 1rem 2rem;
+    box-shadow: 0 4px 5px #262626;
   }
 
   header>div {
@@ -40,24 +42,16 @@ $current_page = basename($_SERVER['PHP_SELF']);
     color: #262626;
     position: relative;
     padding: 0.25rem 0;
-    transition: color 0.3s ease;
-  }
-
-   nav ul li a {
-    cursor: pointer;
-    font-weight: 500;
-    color: #262626;
-    position: relative;
-    padding: 0.25rem 0;
-    transition: color 0.3s ease;
+    transition: color 0.2s ease;
   }
 
   nav ul li:hover {
     color: #2edf84;
   }
 
-   nav ul li a:hover {
+  nav ul li a:hover {
     color: #2edf84;
+    transition: color 0.2s ease;
   }
 
   .logo {
@@ -73,11 +67,12 @@ $current_page = basename($_SERVER['PHP_SELF']);
     user-select: none;
   }
 
-  li>a{
+  li>a {
+    color: #262626;
     text-decoration: none;
   }
 
-.active{
+  .active {
     color: #747378;
   }
 </style>
@@ -91,7 +86,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <ul>
       <li><a href="index.php" class="<?php echo $current_page === 'index.php' ? 'active' : ''; ?>">Search</a></li>
       <li><a href="products.php" class="<?php echo $current_page === 'products.php' ? 'active' : ''; ?>">Products</a></li>
-      <li><a class="<?php echo $current_page === 'tpprated.php' ? 'active' : ''; ?>">Dashboard</a></li>
+      <li><a href="dashboard.php" class="<?php echo $current_page === 'tpprated.php' ? 'active' : ''; ?>">Dashboard</a></li>
       <li><a class="<?php echo $current_page === 'wishlist.php' ? 'active' : ''; ?>">Wishlist</a></li>
       <li><a class="<?php echo $current_page === 'orders.php' ? 'active' : ''; ?>">Orders</a></li>
       <li><a href="cart.php" class="<?php echo $current_page === 'cart.php' ? 'active' : ''; ?>">Cart</a></li>
