@@ -475,9 +475,6 @@ private function handleUnsetWishlist($apiKey, $productId) {
     }
 }
 
-    // CREATE: Add new admin
-
-
     private function handleGetAllRetailers($data) {
     // Validate API key first
     if (!isset($data['apikey'])) {
@@ -615,7 +612,7 @@ private function handleUnsetWishlist($apiKey, $productId) {
         if (!in_array($data['field'], $tableConfig['fields'])) {
             throw new Exception("Invalid field for the specified table", 400);
         }
-        $searchTerm = "%{$data['search']}%";
+        $searchTerm = "{$data['search']}";
         $whereConditions[] = "{$data['field']} LIKE :search";
         $params[':search'] = $searchTerm;
     } elseif (isset($data['field']) || isset($data['search'])) {
