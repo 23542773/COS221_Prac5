@@ -98,8 +98,11 @@ class API {
                 case 'rating':
                     $this->handleRating($data);
                     break;
-                 case 'admin':
+                case 'admin':
                     $this->handlAdmin($data);
+                    break;
+                case 'pref':
+                    $this->handlePref($data);
                     break;
                 default:
                     throw new Exception("Unknown API endpoint", 400);
@@ -395,7 +398,7 @@ private function handleGetAllProducts($data) {
     }
 }
 
-    // CREATE: Add new admin
+// CREATE: Add new admin
 private function handleCreateAdmin($data) {
     // Validate required fields
     if (!isset($data['userApiKey']) || !isset($data['privilege'])) {
@@ -920,6 +923,42 @@ private function handleGetRating($data) {
 
         $this->sendSuccess($response);
     } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
+
+private function handlePref($data) {
+
+    if (!isset($data['apikey'])) {
+        throw new Exception("API key is required", 400);
+    }
+
+    $apiKey = trim($data['apikey']);
+    
+    if (!$this->validateApiKey($apiKey)) {
+        throw new Exception("Invalid API key", 401);
+    }
+
+    try {
+
+        // Get ALl preferences
+        $query = "SELECT * FROM preferences WHERE `K` = ?";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute([$apiKey]);
+        
+        $preferences = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        if (empty($preferences)) {
+
+            $this->sendSuccess([
+                'message' => 'No preferences found for this user',
+                'preferences' => []
+            ]);
+
+        } else $this->sendSuccess($preferences);
+
+    } catch (PDOException $e) {
+        error_log("Database error: " . $e->getMessage());
         throw new Exception("Database error: " . $e->getMessage(), 500);
     }
 }
