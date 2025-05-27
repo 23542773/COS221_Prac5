@@ -1,6 +1,6 @@
 <?php
 require 'getUsers.php';
-include 'header.php';
+include_once 'header.php';
 $usersResponse = fetchUsers();
 // Group key
 $groupKey = 'Surname';
@@ -46,7 +46,7 @@ if ($usersResponse['status'] === 'success' && !empty($usersResponse['data']['use
 </body>
 </html>
 
-<?php include 'footer.php'; ?>
+<?php include_once 'footer.php'; ?>
 ?>
 <style>
     body {
