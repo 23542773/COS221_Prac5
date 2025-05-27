@@ -189,8 +189,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const result = await response.json();
             localStorage.setItem('apikey',result.data.apikey);
-            localStorage.setItem('name',result.data.name)
-            window.location.href = '../../index.php';
+            localStorage.setItem('name',result.data.name);
+            if(result.data.isadmin==true){
+                window.location.href = '../../admin.php';
+            }else 
+                window.location.href = '../../index.php';
 
 
         } catch (error) {

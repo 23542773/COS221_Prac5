@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dynamic Header Example</title>
     <style>
         header {
             width: 100vw;
@@ -116,8 +115,9 @@
 (function() {
     // Retrieve data from localStorage
     const apikey = localStorage.getItem('apikey');
-    const username = localStorage.getItem('username') || '';
+    const username = localStorage.getItem('name') || '';
     const isLoggedIn = apikey !== null;
+    console.log(isLoggedIn);
 
 
 

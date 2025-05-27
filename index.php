@@ -18,6 +18,20 @@
         </div>
         
     </main>
+    <script>
+    const searchBox = document.querySelector('.search-box');
+    searchBox.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+            const searchTerm = searchBox.value.trim();
+            if (searchTerm.length > 0) {
+                // Save to localStorage
+                localStorage.setItem('search', searchTerm);
+                // Redirect to another page
+                window.location.href = 'COS221/products.php'; // change to your target page
+            }
+        }
+    });
+</script>
 
     <?php include_once 'COS221/footer.php' ?>
 </body>
