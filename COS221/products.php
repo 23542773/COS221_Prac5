@@ -31,6 +31,12 @@
                                 <p class="reviewrating"></p>
                             </div>
                         </div>
+                        <div id="prices">
+                            <div class="reatiler">
+                                <h6 class="name"></h6>
+                                <p class="price"></p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>

@@ -5,16 +5,17 @@
     view.style.flex=2;
     var rating= await getreview(id);
     var allof=await getallof(id);
-    for(var i=0;i<allof.length;i++){
-        allof.retailername=getretailername(id);
+    for(var i=0;i<(allof.results).length;i++){
+        (allof.results[i]).retailername=getretailername((allof.results[i]).RID);
     }
-    console.log(allof);
+    console.log(allof.results);
     const data={
         title: products[idx].Name,
         imageSrc: products[idx].Thumbnail, 
         description: products[idx].Description,
         rating: rating.averageRating || null,
-        reviews: rating.ratings || null
+        reviews: rating.ratings || null,
+        prices: allof.results||null
     }
 
     populateProductDetails(data);
@@ -63,9 +64,10 @@ async function  getproducts(){
             // Handle successful registration
             const result = await response.json();
             products=result.data;
+            console.log(products);
             var p= document.getElementById("products");
             for(var i=0;i<products.length;i++){
-                var block=createProductBlock(products[i].Thumbnail,products[i].Name,products[i].price,products[i].average_rating,products[i].ProductID,i);
+                var block=createProductBlock(products[i].Thumbnail,products[i].Name,products[i].price,products[i].averageRating,products[i].ProductID,i);
                 p.appendChild(block);
             }
 
@@ -233,6 +235,16 @@ async function getretailers(){
             text: "Good value for the price.",
             rating: 4
         }
+    ],
+    prices: [
+        {
+            retailer: "Retailer A",
+            price: "$29.99"
+        },
+        {
+            retailer: "Retailer B",
+            price: "$27.49"
+        }
     ]
 };*/
 
@@ -312,6 +324,22 @@ function populateProductDetails(data) {
         reviewDiv.appendChild(reviewText);
         reviewDiv.appendChild(reviewRating);
         reviewsContainer.appendChild(reviewDiv);
+    });
+
+    const pricesContainer = document.getElementById("prices");
+    pricesContainer.innerHTML = ""; // Clear existing prices
+    data.prices.forEach(priceInfo => {
+        const retailerDiv = document.createElement("div");
+        retailerDiv.className = "retailer";
+        const retailerName = document.createElement("h6");
+        retailerName.className = "name";
+        retailerName.textContent = priceInfo.retailername;
+        const price = document.createElement("p");
+        price.className = "price";
+        price.textContent = priceInfo.price;
+        retailerDiv.appendChild(retailerName);
+        retailerDiv.appendChild(price);
+        pricesContainer.appendChild(retailerDiv);
     });
 }
 
