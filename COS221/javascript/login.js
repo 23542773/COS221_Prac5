@@ -191,7 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     email.classList.add("wrong");
                     emailerr.innerHTML=errorData.data;
                 }
-                throw new Error(errorData.data || 'Registration failed');
+                throw new Error(errorData.data || 'Login failed');
             }
 
             // Handle successful registration

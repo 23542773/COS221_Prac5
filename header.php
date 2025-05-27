@@ -84,22 +84,22 @@ $current_page = basename($_SERVER['PHP_SELF']);
 
 <header>
   <div>
-    <img class="logo" src="img/logo.png">
+    <img class="logo" src="COS221//img/logo.png">
     <p id="logop">Chief Kompare</p>
   </div>
   <nav>
     <ul>
-      <li><a href="../index.php" class="<?php echo $current_page === 'index.php' ? 'active' : ''; ?>">Search</a></li>
-      <li><a href="products.php" class="<?php echo $current_page === 'products.php' ? 'active' : ''; ?>">Products</a></li>
+      <li><a href="index.php" class="<?php echo $current_page === 'index.php' ? 'active' : ''; ?>">Search</a></li>
+      <li><a href="COS221/products.php" class="<?php echo $current_page === 'products.php' ? 'active' : ''; ?>">Products</a></li>
       <li><a class="<?php echo $current_page === 'tpprated.php' ? 'active' : ''; ?>">Dashboard</a></li>
       <li><a class="<?php echo $current_page === 'wishlist.php' ? 'active' : ''; ?>">Wishlist</a></li>
       <li><a class="<?php echo $current_page === 'orders.php' ? 'active' : ''; ?>">Orders</a></li>
-      <li><a href="cart.php" class="<?php echo $current_page === 'cart.php' ? 'active' : ''; ?>">Cart</a></li>
+      <li><a href="COS221/cart.php" class="<?php echo $current_page === 'cart.php' ? 'active' : ''; ?>">Cart</a></li>
       <?php if ($isLoggedIn): ?>
         <li><a class="<?php echo $current_page === 'logout.php' ? 'active' : ''; ?>">Logout</a></li>
         <li><?php echo htmlspecialchars($username); ?></li>
       <?php else: ?>
-        <li><a href="login.php" class="<?php echo $current_page === 'login.php' ? 'active' : ''; ?>">Login</a></li>
+        <li><a href="COS221/login.php" class="<?php echo $current_page === 'login.php' ? 'active' : ''; ?>">Login</a></li>
       <?php endif; ?>
     </ul>
   </nav>
