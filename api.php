@@ -1311,8 +1311,15 @@ private function handleGetRating($data) {
     }
 
     private function validateApiKey($apiKey) {
-        // TODO: Implement API key validation
-        return true;
+
+        try {
+            $stmt = $this->db->prepare("SELECT 1 FROM users WHERE `API_Key` = ?");
+            $stmt->execute([trim($apiKey)]);
+            return (bool)$stmt->fetch();
+        } catch (PDOException $e) {
+            error_log("API key validation failed: " . $e->getMessage());
+            return false;
+        }
     }
 
     private function sendSuccess($data) {
