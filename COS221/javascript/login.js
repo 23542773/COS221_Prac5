@@ -30,9 +30,9 @@ const phone = document.getElementById('countryCode');
 
 function updateSelectColor2() {
     if (phone.value === "") {
-      phone.classList.remove('active');
+        phone.classList.remove('active');
     } else {
-      phone.classList.add('active');
+        phone.classList.add('active');
     }
 }
 phone.addEventListener('change', updateSelectColor2);
@@ -40,11 +40,11 @@ updateSelectColor2();
 
 
 const phoneInput = document.getElementById('phone');
-phoneInput.addEventListener('input', function(e) {
-      // Remove any character that is not a digit
+phoneInput.addEventListener('input', function (e) {
+    // Remove any character that is not a digit
     const digitsOnly = this.value.replace(/\D/g, '');
     if (this.value !== digitsOnly) {
-    this.value = digitsOnly;
+        this.value = digitsOnly;
     }
 });
 
@@ -54,38 +54,38 @@ function containsWord(str, word) {
     return regex.test(str);
 }
 
- function validatePhoneNumber(countryCode, phoneNumber) {
-        // Remove any non-digit characters from the phone number
-        const cleanedNumber = phoneNumber.replace(/\D/g, '');
-        // Define regex patterns for each country code
-        const patterns = {
-            '+27': /^\d{9}$/, // South Africa: 10 digits
-            '+264': /^\d{6,8}$/, // Namibia: 7 to 9 digits
-            '+267': /^\d{6}$/, // Botswana: 7 digits
-            '+263': /^\d{8}$/, // Zimbabwe: 9 digits
-            '+258': /^\d{8}$/, // Mozambique: 9 digits
-            '+266': /^\d{7}$/, // Lesotho: 8 digits
-            '+268': /^\d{6}$/, // Eswatini: 7 digits
-            '+244': /^\d{8}$/, // Angola: 9 digits
-        };
-        // Check if the selected country code has a defined pattern
-        if (patterns[countryCode]) {
-            return patterns[countryCode].test(cleanedNumber);
-        }
-        return false; // Invalid country code
+function validatePhoneNumber(countryCode, phoneNumber) {
+    // Remove any non-digit characters from the phone number
+    const cleanedNumber = phoneNumber.replace(/\D/g, '');
+    // Define regex patterns for each country code
+    const patterns = {
+        '+27': /^\d{9}$/, // South Africa: 10 digits
+        '+264': /^\d{6,8}$/, // Namibia: 7 to 9 digits
+        '+267': /^\d{6}$/, // Botswana: 7 digits
+        '+263': /^\d{8}$/, // Zimbabwe: 9 digits
+        '+258': /^\d{8}$/, // Mozambique: 9 digits
+        '+266': /^\d{7}$/, // Lesotho: 8 digits
+        '+268': /^\d{6}$/, // Eswatini: 7 digits
+        '+244': /^\d{8}$/, // Angola: 9 digits
+    };
+    // Check if the selected country code has a defined pattern
+    if (patterns[countryCode]) {
+        return patterns[countryCode].test(cleanedNumber);
     }
+    return false; // Invalid country code
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     const signupForm = document.getElementById('signupForm');
 
     signupForm.addEventListener('submit', async (event) => {
-        event.preventDefault(); 
+        event.preventDefault();
 
         const countryCode = document.getElementById('countryCode').value;
         const phoneNumber = document.getElementById('phone').value;
         const phoneError = document.getElementById('cphone-error');
         phoneError.innerHTML = "";
-        var p=document.getElementById('phone');
+        var p = document.getElementById('phone');
         p.classList.remove("wrong");
         // Validate phone number based on country code
         if (!validatePhoneNumber(countryCode, phoneNumber)) {
@@ -94,16 +94,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        var passerr=document.getElementById("signup-password-error");
-        passerr.innerHTML="";
+        var passerr = document.getElementById("signup-password-error");
+        passerr.innerHTML = "";
 
-        var emailerr=document.getElementById("signup-email-error");
-        emailerr.innerHTML="";
+        var emailerr = document.getElementById("signup-email-error");
+        emailerr.innerHTML = "";
 
-        var pass=document.getElementById("signup-password");
+        var pass = document.getElementById("signup-password");
         pass.classList.remove('wrong');
 
-        var email=document.getElementById("signup-email");
+        var email = document.getElementById("signup-email");
         email.classList.remove("wrong");
 
         const formData = new FormData(signupForm);
@@ -111,13 +111,13 @@ document.addEventListener('DOMContentLoaded', () => {
             Name: formData.get('firstName'),
             Surname: formData.get('lastName'),
             Email: formData.get('email'),
-            phoneNumber: formData.get('countryCode')+formData.get('phone'),
+            phoneNumber: formData.get('countryCode') + formData.get('phone'),
             Password: formData.get('password'),
-            api:"register"
+            api: "register"
         };
         try {
             // Send data to the API
-            const response = await fetch('../../api_cos221.php', {
+            const response = await fetch('../api_cos221.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -125,50 +125,51 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify(data),
             });
 
-            
+
             if (!response.ok) {
                 const errorData = await response.json();
-                if(containsWord(errorData.data,"Password")){
+                if (containsWord(errorData.data, "Password")) {
                     pass.classList.add('wrong');
-                    passerr.innerHTML=errorData.data;
+                    passerr.innerHTML = errorData.data;
                 }
-                if(containsWord(errorData.data,"email")){
+                if (containsWord(errorData.data, "email")) {
                     email.classList.add("wrong");
-                    emailerr.innerHTML=errorData.data;
+                    emailerr.innerHTML = errorData.data;
                 }
                 throw new Error(errorData.data || 'Registration failed');
             }
 
             // Handle successful registration
             const result = await response.json();
-            localStorage.setItem('apikey',result.data.apikey);
-            localStorage.setItem('name',data.Name);
+            localStorage.setItem('apikey', result.data.apikey);
+            localStorage.setItem('name', data.Name);
+            window.location.href = '../index.php';
 
         } catch (error) {
             console.error('Error:', error);
         }
     });
 
-     const loginForm = document.getElementById('loginForm');
-     loginForm.addEventListener('submit',async (event)=>{
-        event.preventDefault(); 
-        var passerr=document.getElementById("password-error");
-        passerr.innerHTML="";
+    const loginForm = document.getElementById('loginForm');
+    loginForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        var passerr = document.getElementById("password-error");
+        passerr.innerHTML = "";
 
-        var pass=document.getElementById("password");
+        var pass = document.getElementById("password");
         pass.classList.remove('wrong');
 
-        var email=document.getElementById("email");
+        var email = document.getElementById("email");
         email.classList.remove("wrong");
 
         const formData = new FormData(loginForm);
         const data = {
             Email: formData.get('email'),
             Password: formData.get('password'),
-            api:"login"
+            api: "login"
         };
         try {
-            const response = await fetch('../../api_cos221.php', {
+            const response = await fetch('../api_cos221.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -178,27 +179,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!response.ok) {
                 const errorData = await response.json();
-                if(containsWord(errorData.data,"Password")){
-                    passerr.innerHTML=errorData.data;
+                if (containsWord(errorData.data, "Password")) {
+                    passerr.innerHTML = errorData.data;
                 }
-                if(containsWord(errorData.data,"email")){
-                    passerr.innerHTML=errorData.data;
+                if (containsWord(errorData.data, "email")) {
+                    passerr.innerHTML = errorData.data;
                 }
                 throw new Error(errorData.data || 'Login failed');
             }
 
             const result = await response.json();
-            localStorage.setItem('apikey',result.data.apikey);
-            localStorage.setItem('name',result.data.name);
-            if(result.data.isadmin==true){
-                window.location.href = '../../admin.php';
-            }else 
-                window.location.href = '../../index.php';
+            localStorage.setItem('apikey', result.data.apikey);
+            localStorage.setItem('name', result.data.name);
+            if (result.data.isadmin == true) {
+                window.location.href = 'admin.php';
+            } else
+                window.location.href = '../index.php';
 
 
         } catch (error) {
             console.error('Error:', error);
         }
-     });
+    });
 });
 

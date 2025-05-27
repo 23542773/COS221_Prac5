@@ -130,7 +130,7 @@
     const navLinks = [
         { text: 'Search', href: '../index.php', page: 'index.php' },
         { text: 'Products', href: 'products.php', page: 'products.php' },
-        { text: 'Dashboard', href: 'tpprated.php', page: 'tpprated.php' },
+        { text: 'Dashboard', href: 'dashboard.php', page: 'dashboard.php' },
         { text: 'Wishlist', href: 'wishlist.php', page: 'wishlist.php' },
         { text: 'Orders', href: 'orders.php', page: 'orders.php' },
         { text: 'Cart', href: 'cart.php', page: 'cart.php' },

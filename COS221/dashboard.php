@@ -34,9 +34,6 @@
         <div id="topProducts">
             <p>Top Rated Products</p>
             <div class="product-container">
-                <div class="product"></div>
-                <div class="product"></div>
-                <div class="product"></div>
             </div>
         </div>
 

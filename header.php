@@ -160,7 +160,7 @@
         // Logout link
         const logoutLi = document.createElement('li');
         const logoutA = document.createElement('a');
-        logoutA.href = 'logout.php';
+        logoutA.href = 'COS221/logout.php';
         logoutA.textContent = 'Logout';
         if (currentPage === 'logout.php') {
             logoutA.classList.add('active');
@@ -179,7 +179,7 @@
         // Login link
         const loginLi = document.createElement('li');
         const loginA = document.createElement('a');
-        loginA.href = 'login.php';
+        loginA.href = 'COS221/login.php';
         loginA.textContent = 'Login';
         if (currentPage === 'login.php') {
             loginA.classList.add('active');

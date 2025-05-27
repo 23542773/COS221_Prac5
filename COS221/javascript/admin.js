@@ -113,8 +113,7 @@ function getFieldPlaceholder(table, field) {
 }
 
 async function sendRequest() {
-    // const adminKey = localStorage.getItem('apikey');
-        const adminKey = 123;
+    const adminKey = localStorage.getItem('apikey');
 
     if (!adminKey) {
         showResponse('Admin key is required', 'error');
@@ -137,6 +136,8 @@ async function sendRequest() {
         operation: action,
         apikey: adminKey
     };
+
+    console.log(payload);
 
     try {
         // Build payload based on action

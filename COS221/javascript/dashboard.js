@@ -17,7 +17,7 @@ function getReviews() {
         body: JSON.stringify({
             "api": "rating",
             "operation": "get",
-            "apikey": "a1b2c3d4e5"
+            "apikey": localStorage.getItem('apikey')
         })
     })
         .then(response => {
@@ -91,14 +91,18 @@ function processReviews(reviews) {
 
 function processTopRated(products) {
     products.data.forEach(product => {
-        const  productDiv = document.createElement('div');
+        const productDiv = document.createElement('div');
         productDiv.classList.add('product');
 
         const Thumbnail = document.createElement('img');
         Thumbnail.src = product.Thumbnail;
 
-        productDiv.appendChild(Thumbnail);
+        const rating = document.createElement('p');
+        rating.textContent = product.averageRating;
 
+        productDiv.appendChild(Thumbnail);
+        productDiv.appendChild(rating);
+        
         topProductsContainer.appendChild(productDiv);
     });
 }
