@@ -104,6 +104,9 @@ class API {
                 case 'wishlist':
                     $this->handleWishlist($data);
                     break;
+                case 'getAllUsers':
+                    $this->handleGetAllUsers($data);
+                    break;
                 default:
                     throw new Exception("Unknown API endpoint", 400);
             }
@@ -111,6 +114,43 @@ class API {
             $this->sendError($e->getMessage(), $e->getCode() ?: 500);
         }
     }
+
+    private function handleGetAllUsers($data) {
+    // Validate API key first (admin only)
+    if (!isset($data['apikey'])) {
+        throw new Exception("API key is required", 400);
+    }
+    
+    try {
+        // Verify API key exists and is admin
+        $stmt = $this->db->prepare("SELECT 1 FROM admin WHERE K = ?");
+        $stmt->execute([$data['apikey']]);
+        if (!$stmt->fetch()) {
+            throw new Exception("Unauthorized - Admin access required", 403);
+        }
+
+        // Set default limit with bounds (1-100)
+        $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 100) : 50;
+        
+        // Get users (excluding sensitive fields)
+        $stmt = $this->db->prepare("
+            SELECT API_Key, Name, Surname, Email, Phone_Number 
+            FROM users 
+            ORDER BY Name ASC 
+            LIMIT :limit
+        ");
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $this->sendSuccess([
+            'count' => count($users),
+            'users' => $users
+        ]);
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
 
     private function handleGetAllCategories($data) {
     // Validate API key
