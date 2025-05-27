@@ -1,0 +1,4 @@
+All my files: getUsers, getCategories
+
+Use:$API_URL = 'http://localhost:8001/api.php';
+$API_KEY = 'a1b2c3d4e5';
