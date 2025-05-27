@@ -1,18 +1,16 @@
 <?php
 header("Content-Type: application/json");
-require_once 'config_cos221.php'; // Database configuration and common functions
+require_once 'config_cos221.php'; 
 
-// Initialize response array
+
 $response = [
     'status' => 'error',
     'message' => 'Invalid request',
     'timestamp' => time()
 ];
 
-// Get the request data
 $requestData = json_decode(file_get_contents('php://input'), true);
 
-// Validate JSON input
 if (json_last_error() !== JSON_ERROR_NONE) {
     $response['message'] = 'Invalid JSON input';
     echo json_encode($response);
@@ -35,7 +33,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-// Load config
 require_once 'config_cos221.php';
 
 class API {
@@ -110,6 +107,9 @@ class API {
                 case 'admin':
                     $this->handleAdmin($data);
                     break;
+                case 'addToCart':
+                    $this->handleAddToCart($data);
+                    break;
                 default:
                     throw new Exception("Unknown API endpoint", 400);
             }
@@ -118,24 +118,139 @@ class API {
         }
     }
 
+    private function handleAddToCart($data) {
+    
+    if (!isset($data['apikey']) || !isset($data['operation'])) {
+        throw new Exception("API key and operation parameters are required", 400);
+    }
+
+    $apiKey = $data['apikey'];
+    $operation = strtolower($data['operation']);
+
+    try {
+        $stmt = $this->db->prepare("SELECT 1 FROM users WHERE API_Key = ?");
+        $stmt->execute([$apiKey]);
+        if (!$stmt->fetch()) {
+            throw new Exception("Invalid API key", 401);
+        }
+
+        switch ($operation) {
+            case 'get':
+                $this->handleGetCart($apiKey);
+                break;
+            case 'set':
+                if (!isset($data['PID']) || !isset($data['Quantity'])) {
+                    throw new Exception("ProductID and Quantity are required for set operation", 400);
+                }
+                $this->handleSetCart($apiKey, (int)$data['PID'], (int)$data['Quantity']);
+                break;
+            case 'unset':
+                if (!isset($data['PID'])) {
+                    throw new Exception("ProductID is required for unset operation", 400);
+                }
+                $this->handleUnsetCart($apiKey, (int)$data['PID']);
+                break;
+            default:
+                throw new Exception("Invalid operation. Must be 'get', 'set', or 'unset'", 400);
+        }
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
+
+private function handleGetCart($apiKey) {
+    $stmt = $this->db->prepare("
+        SELECT c.PID, p.Name, p.Description, p.Brand, p.Category, p.Thumbnail, 
+               c.Quantity, SUM(l.remaining) as Available
+        FROM carts c
+        JOIN products p ON c.PID = p.ProductID
+        LEFT JOIN listings l ON p.ProductID = l.ProductID
+        WHERE c.K = ?
+        GROUP BY c.PID
+    ");
+    $stmt->execute([$apiKey]);
+    $cartItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $this->sendSuccess([
+        'carts' => $cartItems,
+        'count' => count($cartItems)
+    ]);
+}
+
+private function handleSetCart($apiKey, $productId, $quantity) {
+    if ($quantity <= 0) {
+        throw new Exception("Quantity must be greater than 0", 400);
+    }
+
+    $stmt = $this->db->prepare("SELECT Name FROM products WHERE ProductID = ?");
+    $stmt->execute([$productId]);
+    $product = $stmt->fetch();
+    if (!$product) {
+        throw new Exception("Product not found", 404);
+    }
+
+    $stmt = $this->db->prepare("SELECT SUM(remaining) as available FROM listings WHERE ProductID = ?");
+    $stmt->execute([$productId]);
+    $available = $stmt->fetch()['available'];
+    
+    if ($available < $quantity) {
+        throw new Exception("Not enough stock available (only $available left)", 400);
+    }
+
+    $stmt = $this->db->prepare("SELECT Quantity FROM carts WHERE K = ? AND PID = ?");
+    $stmt->execute([$apiKey, $productId]);
+    $existingItem = $stmt->fetch();
+
+    if ($existingItem) {
+        $stmt = $this->db->prepare("UPDATE carts SET Quantity = ? WHERE K = ? AND PID = ?");
+        $stmt->execute([$quantity, $apiKey, $productId]);
+        $message = "Carts item quantity updated";
+    } else {
+        
+        $stmt = $this->db->prepare("INSERT INTO carts (K, PID, Quantity) VALUES (?, ?, ?)");
+        $stmt->execute([$apiKey, $productId, $quantity]);
+        $message = "Item added to carts";
+    }
+
+    $this->sendSuccess([
+        'message' => $message,
+        'cartsItem' => [
+            'PID' => $productId,
+            'Name' => $product['Name'],
+            'Quantity' => $quantity,
+            'Available' => $available
+        ]
+    ]);
+}
+
+private function handleUnsetCart($apiKey, $productId) {
+    $stmt = $this->db->prepare("DELETE FROM carts WHERE K = ? AND PID = ?");
+    $stmt->execute([$apiKey, $productId]);
+
+    if ($stmt->rowCount() === 0) {
+        throw new Exception("Product not found in carts", 404);
+    }
+
+    $this->sendSuccess([
+        'message' => 'Product removed from carts',
+        'productId' => $productId
+    ]);
+}
+
     private function handleGetAllUsers($data) {
-    // Validate API key first (admin only)
     if (!isset($data['apikey'])) {
         throw new Exception("API key is required", 400);
     }
     
     try {
-        // Verify API key exists and is admin
         $stmt = $this->db->prepare("SELECT 1 FROM admin WHERE K = ?");
         $stmt->execute([$data['apikey']]);
         if (!$stmt->fetch()) {
             throw new Exception("Unauthorized - Admin access required", 403);
         }
 
-        // Set default limit with bounds (1-100)
         $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 100) : 50;
         
-        // Get users (excluding sensitive fields)
         $stmt = $this->db->prepare("
             SELECT API_Key, Name, Surname, Email, Phone_Number 
             FROM users 
@@ -156,7 +271,6 @@ class API {
 }
 
     private function handleGetAllCategories($data) {
-    // Validate API key
     if (!isset($data['apikey'])) {
         throw new Exception("API key is required", 400);
     }
@@ -166,10 +280,8 @@ class API {
     }
 
     try {
-        // Set default limit with bounds (1-100)
         $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 100) : 50;
         
-        // Get distinct categories
         $stmt = $this->db->prepare("SELECT DISTINCT Category FROM categories ORDER BY Category ASC LIMIT :limit");
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->execute();
@@ -185,7 +297,6 @@ class API {
 }
 
     private function handleWishlist($data) {
-    // Validate required parameters
     if (!isset($data['apikey']) || !isset($data['operation'])) {
         throw new Exception("API key and operation parameters are required", 400);
     }
@@ -194,7 +305,6 @@ class API {
     $operation = strtolower($data['operation']);
 
     try {
-        // Verify API key exists
         $stmt = $this->db->prepare("SELECT 1 FROM users WHERE API_Key = ?");
         $stmt->execute([$apiKey]);
         if (!$stmt->fetch()) {
@@ -226,7 +336,6 @@ class API {
 }
 
 private function handleGetWishlist($apiKey) {
-    // Get all wishlist items with product details
     $stmt = $this->db->prepare("
         SELECT p.ProductID, p.Name, p.Description, p.Brand, p.Category, p.Thumbnail
         FROM wishlist w
@@ -243,21 +352,17 @@ private function handleGetWishlist($apiKey) {
 }
 
 private function handleSetWishlist($apiKey, $productId) {
-    // Verify product exists
     $stmt = $this->db->prepare("SELECT 1 FROM products WHERE ProductID = ?");
     $stmt->execute([$productId]);
     if (!$stmt->fetch()) {
         throw new Exception("Product not found", 404);
     }
-
-    // Check if already in wishlist
     $stmt = $this->db->prepare("SELECT 1 FROM wishlist WHERE K = ? AND PID = ?");
     $stmt->execute([$apiKey, $productId]);
     if ($stmt->fetch()) {
         throw new Exception("Product already in wishlist", 409);
     }
 
-    // Add to wishlist
     $stmt = $this->db->prepare("INSERT INTO wishlist (K, PID) VALUES (?, ?)");
     $stmt->execute([$apiKey, $productId]);
 
@@ -268,7 +373,6 @@ private function handleSetWishlist($apiKey, $productId) {
 }
 
 private function handleUnsetWishlist($apiKey, $productId) {
-    // Remove from wishlist
     $stmt = $this->db->prepare("DELETE FROM wishlist WHERE K = ? AND PID = ?");
     $stmt->execute([$apiKey, $productId]);
 
@@ -291,7 +395,7 @@ private function handleUnsetWishlist($apiKey, $productId) {
     $password = $data['Password'];
 
     try {
-        // Get user credentials - now including Name and Surname
+        // Get user credentials 
         $stmt = $this->db->prepare("SELECT API_Key, Password, Salt, Name, Surname FROM users WHERE Email = ?");
         if (!$stmt) {
             throw new Exception("Database preparation failed", 500);
@@ -336,7 +440,6 @@ private function handleUnsetWishlist($apiKey, $productId) {
     $apiKey = $data['apikey'];
 
     try {
-        // Verify API key exists
         $stmt = $this->db->prepare("SELECT 1 FROM users WHERE API_Key = ?");
         $stmt->execute([$apiKey]);
         
@@ -353,36 +456,30 @@ private function handleUnsetWishlist($apiKey, $productId) {
 }
 
     private function handleRegistration($data) {
-    // Define required fields
     $required = ['Name', 'Surname', 'Email', 'Password', 'phoneNumber'];
     
-    // Validate required fields
     foreach ($required as $field) {
         if (empty($data[$field])) {
             throw new Exception("$field is required", 400);
         }
     }
     
-    // Validate email format
     $email = trim($data['Email']);
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         throw new Exception("Invalid email format", 400);
     }
     
-    // Validate password complexity
     if (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\d\s:])([^\s]){8,}$/', $data['Password'])) {
         throw new Exception("Password must be 8+ chars with uppercase, lowercase, number, and special character", 400);
     }
     
     try {
-        // Check if email exists
         $stmt = $this->db->prepare("SELECT Email FROM users WHERE Email = ?");
         $stmt->execute([$email]);
         if ($stmt->fetch()) {
             throw new Exception("Email already registered", 409);
         }
 
-        // Check if phone number exists
         $phoneNumber = $data['phoneNumber'];
         $stmt = $this->db->prepare("SELECT Phone_Number FROM users WHERE Phone_Number = ?");
         $stmt->execute([$phoneNumber]);
@@ -390,7 +487,6 @@ private function handleUnsetWishlist($apiKey, $productId) {
             throw new Exception("Phone number already registered", 409);
         }
         
-        // Generate secure credentials
         $salt = bin2hex(random_bytes(16));
         $hashedPassword = hash('sha256', $data['Password'] . $salt);
         $apiKey = $this->generateApiKey();
@@ -414,7 +510,6 @@ private function handleUnsetWishlist($apiKey, $productId) {
             throw new Exception("Failed to register user", 500);
         }
         
-        // Return success with API key
         $this->sendSuccess([
             'message' => 'Registration successful',
             'apikey' => $apiKey
@@ -576,19 +671,18 @@ private function isAdmin($apiKey) {
         throw new Exception("Database error: " . $e->getMessage(), 500);
     }
 }
-   // CREATE: universal create
 private function handleUniversalCreate($data) {
-    //  1. Check admin API key
+    //  Check admin API key
     if (!isset($data['apikey']) || !$this->isAdmin($data['apikey'])) {
         throw new Exception("Admin access required", 403);
     }
 
-    //  2. Validate table name
+    //  Validate table name
     if (!isset($data['table'])) {
         throw new Exception("Table parameter is required", 400);
     }
 
-     //  3. Define allowed tables and insertable fields
+     // Define allowed tables and insertable fields
     $allowedTables = [
         'admin' => ['K', 'Privilege'],
         'carts' => ['K', 'PID', 'Quantity'],
@@ -610,17 +704,17 @@ private function handleUniversalCreate($data) {
         throw new Exception("Invalid table", 400);
     }
 
-    // 4. Validate values
+    //Validate values
     if (!isset($data['values']) || !is_array($data['values']) || empty($data['values'])) {
         throw new Exception("Values must be a non-empty object", 400);
     }
 
-    //  5. Filter to allowed columns
+    //Filter to allowed columns
     $validFields = $allowedTables[$table];
     $insertFields = [];
     $insertValues = [];
 
-    // Special handling for 'users' table: generate secure values if missing
+    // Special handling for 'users' table
     if ($table === 'users') {
         if (!isset($data['values']['API_Key'])) {
             $data['values']['API_Key'] = $this->generateApiKey();
@@ -642,12 +736,12 @@ private function handleUniversalCreate($data) {
         $insertValues[] = $value;
     }
 
-    //  6. Construct SQL query
+    //Construct SQL query
     $columnsSql = implode(', ', $insertFields);
     $placeholdersSql = implode(', ', array_fill(0, count($insertFields), '?'));
     $sql = "INSERT INTO `$table` ($columnsSql) VALUES ($placeholdersSql)";
 
-    //   7. Execute safely
+    //Execute safely
     try {
         $stmt = $this->db->prepare($sql);
         $stmt->execute($insertValues);
@@ -662,7 +756,6 @@ private function handleUniversalCreate($data) {
     }
 }
 
-//make a user an admin
 private function handleCreateAdmin($data){
     $userApiKey = $data['values']['userApiKey'] ?? null;
     $privilege = $data['values']['privilege'] ?? null;
@@ -703,12 +796,11 @@ private function handleCreateAdmin($data){
     }
 }
 
-// READ: Get specific admin by API key
 private function handleGetAdmin($data) {
     if (!isset($data['userApiKey'])) {
         throw new Exception("userApiKey parameter is required", 400);
     }
-     //  1. Check admin API key
+     // Check admin API key
     if (!isset($data['apikey']) || !$this->isAdmin($data['apikey'])) {
         throw new Exception("Admin access required", 403);
     }
@@ -723,8 +815,7 @@ private function handleGetAdmin($data) {
         ");
         $stmt->execute([$userApiKey]);
         $admin = $stmt->fetch(PDO::FETCH_ASSOC);
-        //fetches the next row from the result set of a PDO statement as an associative array.
-        
+
         if (!$admin) {
             throw new Exception("Admin not found", 404);
         }
@@ -736,7 +827,6 @@ private function handleGetAdmin($data) {
     }
 }
 
-// UPDATE:universal update 
 private function handleUniversalUpdate($data) {
     // Validate required fields
     if (!isset($data['table'])) {
@@ -750,7 +840,7 @@ private function handleUniversalUpdate($data) {
     if (!isset($data['where']) || !is_array($data['where'])) {
         throw new Exception("where parameter is required and must be an array", 400);
     }
-    //  1. Check admin API key
+    //Check admin API key
     if (!isset($data['apikey']) || !$this->isAdmin($data['apikey'])) {
         throw new Exception("Admin access required", 403);
     }
@@ -759,7 +849,7 @@ private function handleUniversalUpdate($data) {
     $updates = $data['updates'];
     $where = $data['where'];
 
-    // Define allowed tables and their primary keys/identifiers
+    // Define allowed tables and their primary keys
     $allowedTables = [
         'retailers' => ['RetailerID'],
         'listings' => ['ProductID', 'RID'],
@@ -829,7 +919,6 @@ private function handleUniversalUpdate($data) {
     }
 }
 
-// DELETE: ability to delete an anything in the database
 private function handleUniversalDelete($data) {
    // Validate required fields
     if (!isset($data['table'])) {
@@ -840,7 +929,7 @@ private function handleUniversalDelete($data) {
         throw new Exception("where parameter is required and must be an array", 400);
     }
 
-     //  1. Check admin API key
+     //Check admin API key
     if (!isset($data['apikey']) || !$this->isAdmin($data['apikey'])) {
         throw new Exception("Admin access required", 403);
     }
@@ -897,9 +986,8 @@ private function handleUniversalDelete($data) {
     }
 }
 
-// LIST: Get all admins
 private function handleListAdmins($data) {
-     //  1. Check admin API key
+     // Check admin API key
     if (!isset($data['apikey']) || !$this->isAdmin($data['apikey'])) {
         throw new Exception("Admin access required", 403);
     }
