@@ -278,6 +278,9 @@ class API {
         case 'create':
             $this->handleUniversalCreate($data);
             break; 
+        case 'createAdmin':
+            $this->handleCreateAdmin($data);
+            break; 
         case 'get':
             $this->handleGetAdmin($data);
             break;
@@ -415,6 +418,53 @@ private function handleUniversalCreate($data) {
     } catch (PDOException $e) {
         throw new Exception("Database error: " . $e->getMessage(), 500);
     }
+}
+
+
+private function handleCreateAdmin($data){
+     // Validate required fields
+    if (!isset($data['userApiKey']) || !isset($data['privilege'])) {
+        throw new Exception("userApiKey and privilege are required", 400);
+    }
+    
+    $userApiKey = $data['userApiKey'];
+    $privilege = $data['privilege'];
+    
+    // Validate privilege enum values
+    $validPrivileges = ['Super Admin', 'Listings Admin', 'User Admin'];
+    if (!in_array($privilege, $validPrivileges)) {
+        throw new Exception("Invalid privilege. Must be 'Super Admin', 'Listings Admin', or 'User Admin'", 400);
+    }
+    
+    try {
+        // Check if user exists
+        $stmt = $this->db->prepare("SELECT API_Key FROM users WHERE API_Key = ?");
+        $stmt->execute([$userApiKey]);//sends sql query
+        if (!$stmt->fetch()) {
+            throw new Exception("User not found", 404);
+        }
+        
+        // Check if user is already an admin
+        $stmt = $this->db->prepare("SELECT K FROM admin WHERE K = ?");
+        $stmt->execute([$userApiKey]);
+        if ($stmt->fetch()) {
+            throw new Exception("User is already an admin", 409);
+        }
+        
+        // Insert new admin record
+        $stmt = $this->db->prepare("INSERT INTO admin (K, Privilege) VALUES (?, ?)");
+        $stmt->execute([$userApiKey, $privilege]);
+        
+        $this->sendSuccess([
+            'message' => 'Admin created successfully',
+            'userApiKey' => $userApiKey,
+            'privilege' => $privilege
+        ]);
+        
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+
 }
 
 // READ: Get specific admin by API key
