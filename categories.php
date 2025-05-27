@@ -10,7 +10,7 @@ $categories = fetchCategories();
     <title>Product Categories</title>
 </head>
 <?php
-include 'header.php';
+include_once 'header.php';
 ?>
 <body>
     <div class="category-list">
@@ -28,7 +28,7 @@ include 'header.php';
     </div>
 </body>
 <?php 
-include 'footer.php';
+include_once 'footer.php';
 ?>
 </html>
 
