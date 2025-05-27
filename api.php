@@ -278,7 +278,7 @@ class API {
         case 'create':
             $this->handleUniversalCreate($data);
             break; 
-        case 'createAdmin':
+        case 'createadmin': // Changed from 'createAdmin' to 'createadmin'
             $this->handleCreateAdmin($data);
             break; 
         case 'get':
@@ -422,13 +422,24 @@ private function handleUniversalCreate($data) {
 
 
 private function handleCreateAdmin($data){
-     // Validate required fields
-    if (!isset($data['userApiKey']) || !isset($data['privilege'])) {
-        throw new Exception("userApiKey and privilege are required", 400);
-    }
+    // Validate required fields - check both top level and values object
+    $userApiKey = null;
+    $privilege = null;
     
-    $userApiKey = $data['userApiKey'];
-    $privilege = $data['privilege'];
+    // Check if values are in the top level (direct format)
+    if (isset($data['userApiKey']) && isset($data['privilege'])) {
+        $userApiKey = $data['userApiKey'];
+        $privilege = $data['privilege'];
+    }
+    // Check if values are nested in 'values' object (nested format)
+    elseif (isset($data['values']) && is_array($data['values']) && 
+            isset($data['values']['userApiKey']) && isset($data['values']['privilege'])) {
+        $userApiKey = $data['values']['userApiKey'];
+        $privilege = $data['values']['privilege'];
+    }
+    else {
+        throw new Exception("userApiKey and privilege are required (either at top level or in values object)", 400);
+    }
     
     // Validate privilege enum values
     $validPrivileges = ['Super Admin', 'Listings Admin', 'User Admin'];
@@ -439,7 +450,7 @@ private function handleCreateAdmin($data){
     try {
         // Check if user exists
         $stmt = $this->db->prepare("SELECT API_Key FROM users WHERE API_Key = ?");
-        $stmt->execute([$userApiKey]);//sends sql query
+        $stmt->execute([$userApiKey]);
         if (!$stmt->fetch()) {
             throw new Exception("User not found", 404);
         }
@@ -464,7 +475,6 @@ private function handleCreateAdmin($data){
     } catch (PDOException $e) {
         throw new Exception("Database error: " . $e->getMessage(), 500);
     }
-
 }
 
 // READ: Get specific admin by API key
