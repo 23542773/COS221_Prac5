@@ -1,6 +1,6 @@
 <?php
 // require 'getWishList.php';
-include 'header.php';
+include_once 'header.php';
 ?>
 
 <script>
@@ -22,7 +22,7 @@ include 'header.php';
     <!-- Wishlist items will be rendered here -->
 </div>
 </body>
-<?php include 'footer.php'; ?>
+<?php include_once 'footer.php'; ?>
 </html> 
 
  <style>
