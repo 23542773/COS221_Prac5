@@ -107,7 +107,6 @@ class API {
                 case 'wishlist':
                     $this->handleWishlist($data);
                     break;
-                
                 default:
                     throw new Exception("Unknown API endpoint", 400);
             }
