@@ -420,58 +420,42 @@ private function handleUniversalCreate($data) {
     }
 }
 
-
+//make a user an admin
 private function handleCreateAdmin($data){
-    // Validate required fields - check both top level and values object
-    $userApiKey = null;
-    $privilege = null;
-    
-    // Check if values are in the top level (direct format)
-    if (isset($data['userApiKey']) && isset($data['privilege'])) {
-        $userApiKey = $data['userApiKey'];
-        $privilege = $data['privilege'];
+    $userApiKey = $data['values']['userApiKey'] ?? null;
+    $privilege = $data['values']['privilege'] ?? null;
+
+    if (!$userApiKey || !$privilege) {
+        throw new Exception("userApiKey and privilege are required", 400);
     }
-    // Check if values are nested in 'values' object (nested format)
-    elseif (isset($data['values']) && is_array($data['values']) && 
-            isset($data['values']['userApiKey']) && isset($data['values']['privilege'])) {
-        $userApiKey = $data['values']['userApiKey'];
-        $privilege = $data['values']['privilege'];
-    }
-    else {
-        throw new Exception("userApiKey and privilege are required (either at top level or in values object)", 400);
-    }
-    
-    // Validate privilege enum values
+
     $validPrivileges = ['Super Admin', 'Listings Admin', 'User Admin'];
     if (!in_array($privilege, $validPrivileges)) {
         throw new Exception("Invalid privilege. Must be 'Super Admin', 'Listings Admin', or 'User Admin'", 400);
     }
-    
+
     try {
-        // Check if user exists
         $stmt = $this->db->prepare("SELECT API_Key FROM users WHERE API_Key = ?");
         $stmt->execute([$userApiKey]);
         if (!$stmt->fetch()) {
             throw new Exception("User not found", 404);
         }
-        
-        // Check if user is already an admin
+
         $stmt = $this->db->prepare("SELECT K FROM admin WHERE K = ?");
         $stmt->execute([$userApiKey]);
         if ($stmt->fetch()) {
             throw new Exception("User is already an admin", 409);
         }
-        
-        // Insert new admin record
+
         $stmt = $this->db->prepare("INSERT INTO admin (K, Privilege) VALUES (?, ?)");
         $stmt->execute([$userApiKey, $privilege]);
-        
+
         $this->sendSuccess([
             'message' => 'Admin created successfully',
             'userApiKey' => $userApiKey,
             'privilege' => $privilege
         ]);
-        
+
     } catch (PDOException $e) {
         throw new Exception("Database error: " . $e->getMessage(), 500);
     }
