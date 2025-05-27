@@ -128,12 +128,12 @@
 
     // Map navigation links: text, href, and filename for matching active state
     const navLinks = [
-        { text: 'Search', href: '../index.php', page: 'index.php' },
-        { text: 'Products', href: 'products.php', page: 'products.php' },
-        { text: 'Dashboard', href: 'tpprated.php', page: 'tpprated.php' },
-        { text: 'Wishlist', href: 'wishlist.php', page: 'wishlist.php' },
-        { text: 'Orders', href: 'orders.php', page: 'orders.php' },
-        { text: 'Cart', href: 'cart.php', page: 'cart.php' },
+        { text: 'Search', href: 'index.php', page: 'index.php' },
+        { text: 'Products', href: 'COS221/products.php', page: 'products.php' },
+        { text: 'Dashboard', href: 'COS221/toprated.php', page: 'tpprated.php' },
+        { text: 'Wishlist', href: 'COS221/wishlist.php', page: 'wishlist.php' },
+        { text: 'Orders', href: 'COS221/orders.php', page: 'orders.php' },
+        { text: 'Cart', href: 'COS221/cart.php', page: 'cart.php' },
     ];
 
 
@@ -148,7 +148,7 @@
     logoContainer.className = 'logo-container';
     const logoImg = document.createElement('img');
     logoImg.className = 'logo';
-    logoImg.src = 'img/logo.png';
+    logoImg.src = 'COS221/img/logo.png';
     logoImg.alt = 'Chief Kompare Logo';
     const logoText = document.createElement('p');
     logoText.id = 'logop';
