@@ -531,6 +531,10 @@ private function isAdmin($apiKey) {
                             WHERE PID = p.ProductID
                         ) >= ?";
                         $params[] = $value;
+                    } elseif ($column === "Name") {
+                        // Fuzzy search for Name using LIKE with wildcards
+                        $whereConditions[] = "p.Name LIKE ?";
+                        $params[] = "%" . $value . "%";
                     } else {
                         // Default to exact match for other fields
                         $whereConditions[] = "p.$column = ?";
