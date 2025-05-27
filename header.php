@@ -184,7 +184,7 @@
         // Logout link
         const logoutLi = document.createElement('li');
         const logoutA = document.createElement('a');
-        logoutA.href = 'logout.php';
+        logoutA.href = 'COS221/logout.php';
         logoutA.textContent = 'Logout';
         if (currentPage === 'logout.php') {
             logoutA.classList.add('active');
