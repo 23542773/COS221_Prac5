@@ -1,0 +1,118 @@
+.page {
+  width: 100vw;
+  height: 100vh;
+  background-color: #fcfaf9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#preferences {
+  margin-top: 100px;
+  height: 5vh;
+  display: flex;
+  align-items: center;
+  background-color: #747578;
+  box-shadow: 2px 2px 5px #262626;
+}
+
+#prefH1 {
+  margin: 0;
+  margin-left: 1vw;
+  font-size: 2em;
+}
+
+.prefHeading {
+  margin: 0;
+  margin-left: 2vw;
+  font-size: 1.5em;
+}
+
+/* Theme toggle */
+.toggle-container {
+  margin-right: 1vw;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.toggle-checkbox {
+  display: none;
+}
+
+.toggle-label {
+  display: block;
+  width: 60px;
+  height: 30px;
+  background-color: #ccc;
+  border-radius: 15px;
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+/* Create the "thumb" or "slider" of the toggle */
+.toggle-label::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  background-color: #fff;
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+}
+
+/* When the checkbox IS CHECKED */
+.toggle-checkbox:checked + .toggle-label {
+  background-color: #132a13;
+}
+
+/* Move the thumb to the right when checked */
+.toggle-checkbox:checked + .toggle-label::before {
+  transform: translateX(30px);
+}
+
+#topProducts {
+  margin-top: 5vh;
+  padding: 1vh 1vw;
+  max-width: 80vw;
+  background-color: #747578;
+  box-shadow: 2px 2px 5px #262626;
+}
+
+.product-container {
+  display: flex;
+  gap: 5px;
+}
+
+.product {
+  border: 1px solid black;
+}
+
+.product img {
+  width: 50px;
+}
+
+#rating-container {
+  margin-top: 5vh;
+  padding: 1vh 1vw;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background-color: #747578;
+  box-shadow: 2px 2px 5px #262626;
+}
+
+.review-item {
+  display: flex;
+  justify-content: space-evenly;
+  height: 40px;
+  width: 60vw;
+  border: 1px solid black;
+}
+
+.review-item p {
+  font-size: 0.8em;
+}
