@@ -82,15 +82,17 @@
   box-shadow: 2px 2px 5px #262626;
 }
 
-.product {
-  height: 100px;
-  width: 60px;
-  border: 1px solid black;
-}
-
 .product-container {
   display: flex;
   gap: 5px;
+}
+
+.product {
+  border: 1px solid black;
+}
+
+.product img {
+  width: 50px;
 }
 
 #rating-container {

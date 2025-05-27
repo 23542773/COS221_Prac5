@@ -3,9 +3,14 @@ const preferences = document.getElementById('preferences');
 const togglePreferences = document.getElementById('togglePreferences');
 const darkModeToggle = document.getElementById('darkModeToggle');
 const ratingContainer = document.getElementById('rating-container');
-
+const topProductsContainer = document.querySelector('.product-container');
 
 document.addEventListener('DOMContentLoaded', function () {
+    getReviews();
+    getTopRated();
+});
+
+function getReviews() {
     fetch('../api_cos221.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -28,7 +33,34 @@ document.addEventListener('DOMContentLoaded', function () {
         .catch(error => {
             console.error('Error:', error);
         });
-});
+}
+
+function getTopRated() {
+    fetch('../api_cos221.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            "api": "GetAllProducts",
+            "apikey": "a1b2c3d4e5",
+            "sort": "averageRating",
+            "order": "DESC",
+            "limit": 10
+        })
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log(data);
+            processTopRated(data);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+}
 
 function processReviews(reviews) {
 
@@ -54,6 +86,20 @@ function processReviews(reviews) {
         reviewDiv.appendChild(commentElement);
 
         ratingContainer.appendChild(reviewDiv);
+    });
+}
+
+function processTopRated(products) {
+    products.data.forEach(product => {
+        const  productDiv = document.createElement('div');
+        productDiv.classList.add('product');
+
+        const Thumbnail = document.createElement('img');
+        Thumbnail.src = product.Thumbnail;
+
+        productDiv.appendChild(Thumbnail);
+
+        topProductsContainer.appendChild(productDiv);
     });
 }
 
