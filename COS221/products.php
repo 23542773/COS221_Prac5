@@ -11,10 +11,20 @@
         <?php include_once 'header.php' ?>
         <main>
             <div id="search">
-                <input type="text" class="search-box" placeholder="Search Products...">
+                <input type="text" id="searchb" class="search-box" placeholder="Search Products...">
             </div>
             <section id="productsview">
-                <div id="filters"></div>
+                <div id="filters">
+                   <div class="dropdown" id="categoryDropdown" tabindex="0" aria-haspopup="listbox" aria-expanded="false">
+                    <div class="dropdown-label" id="dropdownLabel" aria-labelledby="dropdownLabel">
+                        Categories
+                    </div>
+                    <div class="dropdown-options" role="listbox" id="dropdownOptions" tabindex="-1">
+                        <!-- Options populated here -->
+                    </div>
+                    </div>
+                    
+                </div>
                 <div id="products">
                 </div>
                 <div id="view">

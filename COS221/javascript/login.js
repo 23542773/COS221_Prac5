@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify(data),
             });
 
-            // Check if the response is ok (status in the range 200-299)
+            
             if (!response.ok) {
                 const errorData = await response.json();
                 if(containsWord(errorData.data,"Password")){
@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Handle successful registration
             const result = await response.json();
             localStorage.setItem('apikey',result.data.apikey);
-            localStorage.setItem('name',data.Name)
+            localStorage.setItem('name',data.Name);
 
         } catch (error) {
             console.error('Error:', error);
@@ -154,9 +154,6 @@ document.addEventListener('DOMContentLoaded', () => {
         event.preventDefault(); 
         var passerr=document.getElementById("password-error");
         passerr.innerHTML="";
-
-        var emailerr=document.getElementById("email-error");
-        emailerr.innerHTML="";
 
         var pass=document.getElementById("password");
         pass.classList.remove('wrong');
@@ -171,7 +168,6 @@ document.addEventListener('DOMContentLoaded', () => {
             api:"login"
         };
         try {
-            // Send data to the API
             const response = await fetch('../../api_cos221.php', {
                 method: 'POST',
                 headers: {
@@ -180,24 +176,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify(data),
             });
 
-            // Check if the response is ok (status in the range 200-299)
             if (!response.ok) {
                 const errorData = await response.json();
                 if(containsWord(errorData.data,"Password")){
-                    pass.classList.add('wrong');
                     passerr.innerHTML=errorData.data;
                 }
                 if(containsWord(errorData.data,"email")){
-                    email.classList.add("wrong");
-                    emailerr.innerHTML=errorData.data;
+                    passerr.innerHTML=errorData.data;
                 }
                 throw new Error(errorData.data || 'Login failed');
             }
 
-            // Handle successful registration
             const result = await response.json();
             localStorage.setItem('apikey',result.data.apikey);
             localStorage.setItem('name',result.data.name)
+            window.location.href = '../../index.php';
 
 
         } catch (error) {

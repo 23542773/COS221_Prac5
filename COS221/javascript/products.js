@@ -1,12 +1,14 @@
- var retailers=[];
+var retailers=[];
 var currentid;
 var currentidx;
+var allproducts=[];
+var categories=[];
  
  async function viewproduct(id,idx){
     currentid=id;
     currentidx=idx;
     var view= document.getElementById("view");
-    view.style.flex=2;
+    view.style.flex=" 0 0 auto";
     var rating= await getreview(id);
     var allof=await getallof(id);
     for(var i=0;i<(allof.results).length;i++){
@@ -34,9 +36,17 @@ function closeview(){
 
 document.addEventListener('DOMContentLoaded', async () => {
     retailers= await getretailers();
+    categories= await getcategories();
     var vcloseiew= document.getElementById("close-button");
-    vcloseiew.addEventListener('click',closeview)
-    getproducts();
+    vcloseiew.addEventListener('click',closeview);
+    var search = document.getElementById("searchb");
+    search.addEventListener("change",searchfil);
+    if(localStorage.getItem("search")!=null){
+        search.value=localStorage.getItem("search");
+        await searchfil();
+        await popfil(); 
+    }else 
+        await getproducts();
 });
 
 var products=[];
@@ -58,7 +68,7 @@ async function  getproducts(){
                 body: JSON.stringify(data),
             });
 
-            // Check if the response is ok (status in the range 200-299)
+            
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.data || 'Get Products failed');
@@ -73,12 +83,85 @@ async function  getproducts(){
                 var block=createProductBlock(products[i].Thumbnail,products[i].Name,products[i].price,products[i].averageRating,products[i].ProductID,i);
                 p.appendChild(block);
             }
-
+            await getallproducts();
+            await popfil();
 
         } catch (error) {
             console.error('Error:', error);
         }
 }
+
+async function  getproductssearch(){
+    const data={
+        api:"GetAllProducts",
+        apikey:localStorage.getItem('apikey')!=null ? localStorage.getItem('apikey'):"dafdda51e1bf23147967c1041cac5d6b",
+        Best:"true",
+        limit:"100" 
+    }
+    try {
+            // Send data to the API
+            const response = await fetch('../../api_cos221.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            });
+
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.data || 'Get Products failed');
+            }
+
+            // Handle successful registration
+            const result = await response.json();
+            products=result.data;
+            var p= document.getElementById("products");
+            p.innerHTML="";
+            for(var i=0;i<products.length;i++){
+                var block=createProductBlock(products[i].Thumbnail,products[i].Name,products[i].price,products[i].averageRating,products[i].ProductID,i);
+                p.appendChild(block);
+            }
+            await getallproducts();
+
+        } catch (error) {
+            console.error('Error:', error);
+        }
+}
+
+async function  getallproducts(){
+    const data={
+        api:"GetAllProducts",
+        apikey:localStorage.getItem('apikey')!=null ? localStorage.getItem('apikey'):"dafdda51e1bf23147967c1041cac5d6b",
+        Best:"true",
+        limit:"800" 
+    }
+    try {
+            // Send data to the API
+            const response = await fetch('../../api_cos221.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            });
+
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.data || 'Get Products failed');
+            }
+
+            // Handle successful registration
+            const result = await response.json();
+            allproducts=result.data;
+
+        } catch (error) {
+            console.error('Error:', error);
+        }
+}
+
 function createProductBlock(imageSrc, titleText, priceText, ratingValue, id,idx) {
     const block = document.createElement('div');
     block.className = 'block';
@@ -172,7 +255,7 @@ async function getreview(id){
                 body: JSON.stringify(data),
             });
 
-            // Check if the response is ok (status in the range 200-299)
+            
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.data || 'Get Products failed');
@@ -204,7 +287,39 @@ async function getretailers(){
                 body: JSON.stringify(data),
             });
 
-            // Check if the response is ok (status in the range 200-299)
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.data || 'Get Products failed');
+            }
+
+            // Handle successful registration
+            const result = await response.json();
+            return result.data;
+
+
+        } catch (error) {
+            console.error('Error:', error);
+        }
+}
+
+async function getcategories(){
+    const data={
+        api:"getAllCategories",
+        apikey:localStorage.getItem('apikey')!=null ? localStorage.getItem('apikey'):"dafdda51e1bf23147967c1041cac5d6b",
+        limit:8004
+    }
+    try {
+            // Send data to the API
+            const response = await fetch('../../api_cos221.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            });
+
+            
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.data || 'Get Products failed');
@@ -367,7 +482,7 @@ async function getallof(id){
                 body: JSON.stringify(data),
             });
 
-            // Check if the response is ok (status in the range 200-299)
+            
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.data || 'Get Products failed');
@@ -492,7 +607,6 @@ submitBtn.addEventListener('click', async () => {
     };
     await addrating(reviewData);
     closeview();
-    getproducts();
     viewproduct(currentid,currentidx);
     // Here you would typically send reviewData to backend or append to UI
     closeModal();
@@ -511,7 +625,7 @@ async function addrating(data){
                 body: JSON.stringify(data),
             });
 
-            // Check if the response is ok (status in the range 200-299)
+            
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.data || 'Get Products failed');
@@ -526,3 +640,199 @@ async function addrating(data){
             console.error('Error:', error);
         }
 }
+
+async function searchproducts(searchvalue){
+     const data={
+        api:"GetAllProducts",
+        apikey:localStorage.getItem('apikey')!=null ? localStorage.getItem('apikey'):"dafdda51e1bf23147967c1041cac5d6b",
+        search:{Name:searchvalue},
+        Best:"true",
+        limit:"800" 
+    }
+    try {
+            // Send data to the API
+            const response = await fetch('../../api_cos221.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            });
+
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.data || 'Get Products failed');
+            }
+
+            // Handle successful registration
+            const result = await response.json();
+            products=result.data;
+            var p= document.getElementById("products");
+            p.innerHTML="";
+            for(var i=0;i<products.length;i++){
+                var block=createProductBlock(products[i].Thumbnail,products[i].Name,products[i].price,products[i].averageRating,products[i].ProductID,i);
+                p.appendChild(block);
+            }
+
+
+        } catch (error) {
+            console.error('Error:', error);
+        }
+}
+
+async function searchfil() {
+    var search = document.getElementById("searchb");
+    var searchitem = search.value;
+    if (searchitem.trim() == "") {
+        localStorage.removeItem("search");
+        await getproductssearch();
+    } else {
+        localStorage.setItem("search", searchitem);
+        await searchproducts(searchitem);
+        allproducts=products;
+    }
+}
+
+async function popfil(){
+    const dropdown = document.getElementById('categoryDropdown');
+    const label = document.querySelector('.dropdown-label');
+    const optionsContainer = document.getElementById('dropdownOptions');
+
+   categories.categories.forEach(category => {
+    const option = document.createElement('div');
+    option.className = 'dropdown-option';
+    option.setAttribute('role', 'option');
+    option.tabIndex = -1;
+    option.textContent = category;
+    option.dataset.value = category;
+    optionsContainer.appendChild(option);
+    
+    option.addEventListener('click',() => {
+        label.textContent = category;
+        categoriesfill(category); 
+        closeDropdown();
+        console.log('Selected category:', category);
+    });
+});
+
+// Create "All" option
+const allOption = document.createElement('div');
+allOption.className = 'dropdown-option';
+allOption.setAttribute('role', 'option');
+allOption.tabIndex = -1;
+allOption.textContent = "All";
+allOption.dataset.value = "All";
+optionsContainer.appendChild(allOption);
+
+allOption.addEventListener('click', () => {
+    label.textContent = "All";
+    categoriesfill("All"); 
+    closeDropdown();
+    console.log('Selected category:', "All");
+});
+
+// Function to open the dropdown
+function openDropdown() {
+    optionsContainer.classList.add('open');
+    dropdown.setAttribute('aria-expanded', 'true');
+}
+
+// Function to close the dropdown
+function closeDropdown() {
+    optionsContainer.classList.remove('open');
+    dropdown.setAttribute('aria-expanded', 'false');
+}
+
+// Function to toggle the dropdown
+function toggleDropdown() {
+    if (optionsContainer.classList.contains('open')) {
+        closeDropdown();
+    } else {
+        openDropdown();
+    }
+}
+
+// Event listener for the dropdown label
+label.addEventListener('click', () => {
+    toggleDropdown();
+});
+
+// Event listener for keyboard navigation
+dropdown.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleDropdown();
+    }
+    if (e.key === 'Escape') {
+        closeDropdown();
+        dropdown.focus();
+    }
+});
+
+}
+
+
+function categoriesfill(data){
+    if(data=="All"){
+            if(localStorage.getItem("search")!=null){
+            search.value=localStorage.getItem("search");
+            searchfil();
+        }else 
+            fillallproducts();
+        return;
+    }
+    products=[];
+    for(var i=0;i<allproducts.length;i++){
+        if(allproducts[i].Category==data){
+            products.push(allproducts[i]);
+        }
+    }
+    var p= document.getElementById("products");
+    p.innerHTML="";
+    for(var i=0;i<products.length;i++){
+        var block=createProductBlock(products[i].Thumbnail,products[i].Name,products[i].price,products[i].averageRating,products[i].ProductID,i);
+        p.appendChild(block);
+    }
+}
+
+async function fillallproducts() {
+    const data = {
+        api: "GetAllProducts",
+        apikey: localStorage.getItem('apikey') != null ? localStorage.getItem('apikey') : "dafdda51e1bf23147967c1041cac5d6b",
+        Best: "true",
+        limit: "100"
+    };
+    
+    try {
+        // Send data to the API
+        const response = await fetch('../../api_cos221.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        });
+
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.data || 'Get Products failed');
+        }
+
+        // Handle successful response
+        const result = await response.json();
+        products = result.data;
+        var p = document.getElementById("products");
+        p.innerHTML = "";
+        for (var i = 0; i < products.length; i++) {
+            var block = createProductBlock(products[i].Thumbnail, products[i].Name, products[i].price, products[i].averageRating, products[i].ProductID, i);
+            p.appendChild(block);
+        }
+
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+

@@ -107,6 +107,9 @@ class API {
                 case 'getAllUsers':
                     $this->handleGetAllUsers($data);
                     break;
+                case 'admin':
+                    $this->handleAdmin($data);
+                    break;
                 default:
                     throw new Exception("Unknown API endpoint", 400);
             }
@@ -422,6 +425,62 @@ private function handleUnsetWishlist($apiKey, $productId) {
     }
 }
 
+     private function handleAdmin($data) {
+    // Validate API key
+    if (!isset($data['apikey'])) {
+        throw new Exception("API key is required", 400);
+    }
+    
+    if (!$this->validateApiKey($data['apikey'])) {
+        throw new Exception("Invalid API key", 401);
+    }
+    
+    // Check if user is admin - only admins can perform admin operations
+    if (!$this->isAdmin($data['apikey'])) {
+        throw new Exception("Access denied. Admin privileges required", 403);
+    }
+    
+    // Validate operation parameter
+    if (!isset($data['operation'])) {
+        throw new Exception("Operation parameter is required", 400);
+    }
+    
+    $operation = strtolower($data['operation']);
+    
+    switch ($operation) {
+        case 'create':
+            $this->handleUniversalCreate($data);
+            break; 
+        case 'createadmin': // Changed from 'createAdmin' to 'createadmin'
+            $this->handleCreateAdmin($data);
+            break; 
+        case 'get':
+            $this->handleGetAdmin($data);
+            break;
+        case 'update':
+            $this->handleUniversalUpdate($data);
+            break;
+        case 'delete':
+            $this->handleUniversalDelete($data);
+            break;
+        case 'list':
+            $this->handleListAdmins($data);
+            break;
+        default:
+            throw new Exception("Invalid operation. Must be 'create', 'read', 'update', 'delete', or 'list'", 400);
+    }
+}
+// Helper method to check if user is admin
+private function isAdmin($apiKey) {
+    try {
+        $stmt = $this->db->prepare("SELECT 1 FROM admin WHERE K = ?");
+        $stmt->execute([$apiKey]);
+        return $stmt->fetch() !== false;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
 
     private function handleGetAllProducts($data) {
     // Validate API key first
@@ -472,6 +531,10 @@ private function handleUnsetWishlist($apiKey, $productId) {
                             WHERE PID = p.ProductID
                         ) >= ?";
                         $params[] = $value;
+                    } elseif ($column === "Name") {
+                        // Fuzzy search for Name using LIKE with wildcards
+                        $whereConditions[] = "p.Name LIKE ?";
+                        $params[] = "%" . $value . "%";
                     } else {
                         // Default to exact match for other fields
                         $whereConditions[] = "p.$column = ?";
@@ -509,6 +572,371 @@ private function handleUnsetWishlist($apiKey, $productId) {
         $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         $this->sendSuccess($products);
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
+   // CREATE: universal create
+private function handleUniversalCreate($data) {
+    //  1. Check admin API key
+    if (!isset($data['apikey']) || !$this->isAdmin($data['apikey'])) {
+        throw new Exception("Admin access required", 403);
+    }
+
+    //  2. Validate table name
+    if (!isset($data['table'])) {
+        throw new Exception("Table parameter is required", 400);
+    }
+
+     //  3. Define allowed tables and insertable fields
+    $allowedTables = [
+        'admin' => ['K', 'Privilege'],
+        'carts' => ['K', 'PID', 'Quantity'],
+        'categories' => ['RID', 'Category'],
+        'listings' => ['ProductID', 'RID', 'quantity', 'price', 'remaining'],
+        'orderitems' => ['OID', 'PID', 'RID', 'Quantity', 'UnitPrice'],
+        'orders' => ['OrderID', 'K', 'OrderDate', 'Total'], // exclude OrderID if auto-increment
+        'preferences' => ['K', 'Pref_Slot', 'Theme', 'Display_Name'],
+        'productimgs' => ['PID', 'URL'],
+        'productratings' => ['K', 'PID', 'Rating', 'Comment', 'Date'],
+        'products' => ['ProductID', 'Name', 'Description', 'Brand', 'Category', 'Thumbnail'],
+        'retailers' => ['RetailerID', 'Name', 'URL'],
+        'users' => ['API_Key', 'Name', 'Surname', 'Password', 'Salt', 'Email', 'Phone_Number'],
+        'wishlist' => ['K', 'PID']
+    ];
+
+    $table = $data['table'];
+    if (!array_key_exists($table, $allowedTables)) {
+        throw new Exception("Invalid table", 400);
+    }
+
+    // 4. Validate values
+    if (!isset($data['values']) || !is_array($data['values']) || empty($data['values'])) {
+        throw new Exception("Values must be a non-empty object", 400);
+    }
+
+    //  5. Filter to allowed columns
+    $validFields = $allowedTables[$table];
+    $insertFields = [];
+    $insertValues = [];
+
+    // Special handling for 'users' table: generate secure values if missing
+    if ($table === 'users') {
+        if (!isset($data['values']['API_Key'])) {
+            $data['values']['API_Key'] = $this->generateApiKey();
+        }
+        if (!isset($data['values']['Salt'])) {
+            $data['values']['Salt'] = bin2hex(random_bytes(16));
+        }
+        if (!isset($data['values']['Password'])) {
+            throw new Exception("Password is required for users", 400);
+        }
+        $data['values']['Password'] = hash('sha256', $data['values']['Password'] . $data['values']['Salt']);
+    }
+
+    foreach ($data['values'] as $field => $value) {
+        if (!in_array($field, $validFields)) {
+            throw new Exception("Field '{$field}' is not allowed in '{$table}'", 400);
+        }
+        $insertFields[] = $field;
+        $insertValues[] = $value;
+    }
+
+    //  6. Construct SQL query
+    $columnsSql = implode(', ', $insertFields);
+    $placeholdersSql = implode(', ', array_fill(0, count($insertFields), '?'));
+    $sql = "INSERT INTO `$table` ($columnsSql) VALUES ($placeholdersSql)";
+
+    //   7. Execute safely
+    try {
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($insertValues);
+
+        $this->sendSuccess([
+            'message' => "Row inserted into {$table} successfully",
+            'table' => $table,
+            'inserted' => $data['values']
+        ]);
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
+
+//make a user an admin
+private function handleCreateAdmin($data){
+    $userApiKey = $data['values']['userApiKey'] ?? null;
+    $privilege = $data['values']['privilege'] ?? null;
+
+    if (!$userApiKey || !$privilege) {
+        throw new Exception("userApiKey and privilege are required", 400);
+    }
+
+    $validPrivileges = ['Super Admin', 'Listings Admin', 'User Admin'];
+    if (!in_array($privilege, $validPrivileges)) {
+        throw new Exception("Invalid privilege. Must be 'Super Admin', 'Listings Admin', or 'User Admin'", 400);
+    }
+
+    try {
+        $stmt = $this->db->prepare("SELECT API_Key FROM users WHERE API_Key = ?");
+        $stmt->execute([$userApiKey]);
+        if (!$stmt->fetch()) {
+            throw new Exception("User not found", 404);
+        }
+
+        $stmt = $this->db->prepare("SELECT K FROM admin WHERE K = ?");
+        $stmt->execute([$userApiKey]);
+        if ($stmt->fetch()) {
+            throw new Exception("User is already an admin", 409);
+        }
+
+        $stmt = $this->db->prepare("INSERT INTO admin (K, Privilege) VALUES (?, ?)");
+        $stmt->execute([$userApiKey, $privilege]);
+
+        $this->sendSuccess([
+            'message' => 'Admin created successfully',
+            'userApiKey' => $userApiKey,
+            'privilege' => $privilege
+        ]);
+
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
+
+// READ: Get specific admin by API key
+private function handleGetAdmin($data) {
+    if (!isset($data['userApiKey'])) {
+        throw new Exception("userApiKey parameter is required", 400);
+    }
+     //  1. Check admin API key
+    if (!isset($data['apikey']) || !$this->isAdmin($data['apikey'])) {
+        throw new Exception("Admin access required", 403);
+    }
+
+    try {
+        $userApiKey = $data['userApiKey'];
+        $stmt = $this->db->prepare("
+            SELECT a.K, a.Privilege, u.Name, u.Surname, u.Email 
+            FROM admin a 
+            JOIN users u ON a.K = u.API_Key 
+            WHERE a.K = ?
+        ");
+        $stmt->execute([$userApiKey]);
+        $admin = $stmt->fetch(PDO::FETCH_ASSOC);
+        //fetches the next row from the result set of a PDO statement as an associative array.
+        
+        if (!$admin) {
+            throw new Exception("Admin not found", 404);
+        }
+        
+        $this->sendSuccess($admin);
+        
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
+
+// UPDATE:universal update 
+private function handleUniversalUpdate($data) {
+    // Validate required fields
+    if (!isset($data['table'])) {
+        throw new Exception("table parameter is required", 400);
+    }
+
+    if (!isset($data['updates']) || !is_array($data['updates'])) {
+        throw new Exception("updates parameter is required and must be an array", 400);
+    }
+
+    if (!isset($data['where']) || !is_array($data['where'])) {
+        throw new Exception("where parameter is required and must be an array", 400);
+    }
+    //  1. Check admin API key
+    if (!isset($data['apikey']) || !$this->isAdmin($data['apikey'])) {
+        throw new Exception("Admin access required", 403);
+    }
+
+    $table = $data['table'];
+    $updates = $data['updates'];
+    $where = $data['where'];
+
+    // Define allowed tables and their primary keys/identifiers
+    $allowedTables = [
+        'retailers' => ['RetailerID'],
+        'listings' => ['ProductID', 'RID'],
+        'categories' => ['RID', 'Category'],
+        'orders' => ['OrderID'],
+        'productratings' => ['K', 'PID'],
+        'users' => ['API_Key'],
+        'orderitems' => ['OID', 'PID', 'RID'],
+        'products' => ['ProductID'],
+        'preferences' => ['K', 'Pref_Slot']
+    ];
+
+    if (!array_key_exists($table, $allowedTables)) {
+        throw new Exception("Invalid table. Allowed tables: " . implode(', ', array_keys($allowedTables)), 400);
+    }
+
+    try {
+        // Special handling for user password update
+        if ($table === 'users' && isset($updates['Password'])) {
+            if (!isset($updates['Salt'])) {
+                $updates['Salt'] = bin2hex(random_bytes(16));
+            }
+            $updates['Password'] = hash('sha256', $updates['Password'] . $updates['Salt']);
+        }
+        // Build SET clause
+        $setParts = [];
+        $setValues = [];
+        foreach ($updates as $column => $value) {
+            $setParts[] = "`$column` = ?";
+            $setValues[] = $value;
+        }
+        $setClause = implode(', ', $setParts);
+
+        // Build WHERE clause
+        $whereParts = [];
+        $whereValues = [];
+        foreach ($where as $column => $value) {
+            $whereParts[] = "`$column` = ?";
+            $whereValues[] = $value;
+        }
+        $whereClause = implode(' AND ', $whereParts);
+
+         // Combine values
+        $allValues = array_merge($setValues, $whereValues);
+
+        // Build and execute query
+        $query = "UPDATE `$table` SET $setClause WHERE $whereClause";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute($allValues);
+
+        $affectedRows = $stmt->rowCount();
+
+        if ($affectedRows === 0) {
+            throw new Exception("No records found matching the criteria or no changes made", 404);
+        }
+
+        $this->sendSuccess([
+            'message' => 'Update successful',
+            'table' => $table,
+            'affectedRows' => $affectedRows,
+            'updates' => $updates,
+            'where' => $where
+        ]);
+
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
+
+// DELETE: ability to delete an anything in the database
+private function handleUniversalDelete($data) {
+   // Validate required fields
+    if (!isset($data['table'])) {
+        throw new Exception("table parameter is required", 400);
+    }
+    
+    if (!isset($data['where']) || !is_array($data['where'])) {
+        throw new Exception("where parameter is required and must be an array", 400);
+    }
+
+     //  1. Check admin API key
+    if (!isset($data['apikey']) || !$this->isAdmin($data['apikey'])) {
+        throw new Exception("Admin access required", 403);
+    }
+    
+    $table = $data['table'];
+    $where = $data['where'];
+    
+    // Define allowed tables
+    $allowedTables = [
+        'admin', 'users', 'products', 'retailers', 'listings', 
+        'carts', 'wishlist', 'productratings', 'productimgs', 
+        'purchases', 'preferences'
+    ];
+    
+    if (!in_array($table, $allowedTables)) {
+        throw new Exception("Invalid table. Allowed tables: " . implode(', ', $allowedTables), 400);
+    }
+    
+    // Prevent self-deletion from admin table
+    if ($table === 'admin' && isset($where['K']) && $where['K'] === $data['apikey']) {
+        throw new Exception("Cannot delete your own admin privileges", 403);
+    }
+    
+    try {
+        // Build WHERE clause
+        $whereParts = [];
+        $whereValues = [];
+        foreach ($where as $column => $value) {
+            $whereParts[] = "`$column` = ?";
+            $whereValues[] = $value;
+        }
+        $whereClause = implode(' AND ', $whereParts);
+        
+        // Build and execute query
+        $query = "DELETE FROM `$table` WHERE $whereClause";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute($whereValues);
+        
+        $affectedRows = $stmt->rowCount();
+        
+        if ($affectedRows === 0) {
+            throw new Exception("No records found matching the criteria", 404);
+        }
+        
+        $this->sendSuccess([
+            'message' => 'Delete successful',
+            'table' => $table,
+            'affectedRows' => $affectedRows,
+            'where' => $where
+        ]);
+        
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
+
+// LIST: Get all admins
+private function handleListAdmins($data) {
+     //  1. Check admin API key
+    if (!isset($data['apikey']) || !$this->isAdmin($data['apikey'])) {
+        throw new Exception("Admin access required", 403);
+    }
+    try {
+        // Set limit with bounds 
+        $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 50) : 20;
+        $offset = isset($data['offset']) ? max(0, (int)$data['offset']) : 0;
+        
+        // Get total count
+        $stmt = $this->db->prepare("SELECT COUNT(*) as total FROM admin");
+        $stmt->execute();
+        $totalCount = $stmt->fetch()['total'];
+        
+        // Get admins with user information
+        $stmt = $this->db->prepare("
+            SELECT a.K, a.Privilege, u.Name, u.Surname, u.Email 
+            FROM admin a 
+            JOIN users u ON a.K = u.API_Key 
+            ORDER BY a.Privilege ASC, u.Name ASC 
+            LIMIT :limit OFFSET :offset
+        ");
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        
+        $admins = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $this->sendSuccess([
+            'admins' => $admins,
+            'pagination' => [
+                'total' => (int)$totalCount,
+                'limit' => $limit,
+                'offset' => $offset,
+                'hasMore' => ($offset + $limit) < $totalCount
+            ]
+        ]);
+        
     } catch (PDOException $e) {
         throw new Exception("Database error: " . $e->getMessage(), 500);
     }
@@ -887,8 +1315,15 @@ private function handleGetRating($data) {
     }
 
     private function validateApiKey($apiKey) {
-        // TODO: Implement API key validation
-        return true;
+
+        try {
+            $stmt = $this->db->prepare("SELECT 1 FROM users WHERE `API_Key` = ?");
+            $stmt->execute([trim($apiKey)]);
+            return (bool)$stmt->fetch();
+        } catch (PDOException $e) {
+            error_log("API key validation failed: " . $e->getMessage());
+            return false;
+        }
     }
 
     private function sendSuccess($data) {

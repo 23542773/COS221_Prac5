@@ -1,106 +1,241 @@
-<?php
-session_start(); 
-$isLoggedIn = isset($_SESSION['anapikey']);
-$username = $isLoggedIn ? $_SESSION['username'] : ''; 
-$current_page = basename($_SERVER['PHP_SELF']);
-?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Header Example</title>
+    <style>
+        header {
+            width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #fcfaf9;
+            padding: 1rem 2rem;
+        }
 
-<style>
-  header {
-    width: 100vw;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background-color: #fcfaf9;
-    padding: 1rem 2rem;
-  }
 
-  header>div {
-    font-weight: 700;
-    font-size: 1.4rem;
-    color: #262626;
-    margin-right: 3rem;
-    user-select: none;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
+        header > div {
+            font-weight: 700;
+            font-size: 1.4rem;
+            color: #262626;
+            margin-right: 3rem;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
 
-  nav ul {
-    display: flex;
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    gap: 2rem;
-  }
 
-  nav ul li {
-    cursor: pointer;
-    font-weight: 500;
-    color: #262626;
-    position: relative;
-    padding: 0.25rem 0;
-    transition: color 0.3s ease;
-  }
+        nav ul {
+            display: flex;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            gap: 2rem;
+        }
 
-   nav ul li a {
-    cursor: pointer;
-    font-weight: 500;
-    color: #262626;
-    position: relative;
-    padding: 0.25rem 0;
-    transition: color 0.3s ease;
-  }
 
-  nav ul li:hover {
-    color: #2edf84;
-  }
 
-   nav ul li a:hover {
-    color: #2edf84;
-  }
+        nav ul li {
+            cursor: pointer;
+            font-weight: 500;
+            color: #262626;
+            position: relative;
+            padding: 0.25rem 0;
+            transition: color 0.3s ease;
+        }
 
-  .logo {
-    max-height: 40px;
-    object-fit: contain;
-  }
 
-  #logop {
-    margin: 0;
-    font-weight: 600;
-    font-size: 1.2rem;
-    color: #262626;
-    user-select: none;
-  }
 
-  li>a{
-    text-decoration: none;
-  }
+        nav ul li a {
+            cursor: pointer;
+            font-weight: 500;
+            color: #262626;
+            position: relative;
+            padding: 0.25rem 0;
+            transition: color 0.3s ease;
+            text-decoration: none;
+        }
 
-.active{
-    color: #747378;
-  }
-</style>
 
-<header>
-  <div>
-    <img class="logo" src="img/logo.png">
-    <p id="logop">Chief Kompare</p>
-  </div>
-  <nav>
-    <ul>
-      <li><a href="../index.php" class="<?php echo $current_page === 'index.php' ? 'active' : ''; ?>">Search</a></li>
-      <li><a href="products.php" class="<?php echo $current_page === 'products.php' ? 'active' : ''; ?>">Products</a></li>
-      <li><a class="<?php echo $current_page === 'tpprated.php' ? 'active' : ''; ?>">Dashboard</a></li>
-      <li><a class="<?php echo $current_page === 'wishlist.php' ? 'active' : ''; ?>">Wishlist</a></li>
-      <li><a class="<?php echo $current_page === 'orders.php' ? 'active' : ''; ?>">Orders</a></li>
-      <li><a href="cart.php" class="<?php echo $current_page === 'cart.php' ? 'active' : ''; ?>">Cart</a></li>
-      <?php if ($isLoggedIn): ?>
-        <li><a class="<?php echo $current_page === 'logout.php' ? 'active' : ''; ?>">Logout</a></li>
-        <li><?php echo htmlspecialchars($username); ?></li>
-      <?php else: ?>
-        <li><a href="login.php" class="<?php echo $current_page === 'login.php' ? 'active' : ''; ?>">Login</a></li>
-      <?php endif; ?>
-    </ul>
-  </nav>
-</header>
+
+        nav ul li:hover {
+            color: #2edf84;
+        }
+
+
+
+        nav ul li a:hover {
+            color: #2edf84;
+        }
+
+
+
+        .logo {
+            max-height: 40px;
+            object-fit: contain;
+        }
+
+
+
+        #logop {
+            margin: 0;
+            font-weight: 600;
+            font-size: 1.2rem;
+            color: #262626;
+            user-select: none;
+        }
+
+
+
+        .active {
+            color: #747378;
+        }
+
+
+
+        .username-display {
+            font-weight: 600;
+            color: #262626;
+            user-select: none;
+            padding-left: 1rem;
+            align-self: center;
+        }
+    </style>
+</head>
+<body>
+
+
+
+<div id="header-container"></div>
+
+
+
+<script>
+(function() {
+    // Retrieve data from localStorage
+    const apikey = localStorage.getItem('apikey');
+    const username = localStorage.getItem('username') || '';
+    const isLoggedIn = apikey !== null;
+
+
+
+    // Get current page filename
+    const currentPage = window.location.pathname.split('/').pop();
+
+
+
+    // Map navigation links: text, href, and filename for matching active state
+    const navLinks = [
+        { text: 'Search', href: '../index.php', page: 'index.php' },
+        { text: 'Products', href: 'products.php', page: 'products.php' },
+        { text: 'Dashboard', href: 'tpprated.php', page: 'tpprated.php' },
+        { text: 'Wishlist', href: 'wishlist.php', page: 'wishlist.php' },
+        { text: 'Orders', href: 'orders.php', page: 'orders.php' },
+        { text: 'Cart', href: 'cart.php', page: 'cart.php' },
+    ];
+
+
+
+    // Create the header element
+    const header = document.createElement('header');
+
+
+
+    // Logo container with image and text
+    const logoContainer = document.createElement('div');
+    logoContainer.className = 'logo-container';
+    const logoImg = document.createElement('img');
+    logoImg.className = 'logo';
+    logoImg.src = 'img/logo.png';
+    logoImg.alt = 'Chief Kompare Logo';
+    const logoText = document.createElement('p');
+    logoText.id = 'logop';
+    logoText.textContent = 'Chief Kompare';
+    logoContainer.appendChild(logoImg);
+    logoContainer.appendChild(logoText);
+
+
+
+    // Navigation container
+    const nav = document.createElement('nav');
+    const ul = document.createElement('ul');
+
+
+
+    // Build standard nav links
+    navLinks.forEach(({text, href, page}) => {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = href;
+        a.textContent = text;
+        if (page === currentPage) {
+            a.classList.add('active');
+        }
+        li.appendChild(a);
+        ul.appendChild(li);
+    });
+
+
+
+    // Append Login/Logout and username
+    if (isLoggedIn) {
+        // Logout link
+        const logoutLi = document.createElement('li');
+        const logoutA = document.createElement('a');
+        logoutA.href = 'logout.php';
+        logoutA.textContent = 'Logout';
+        if (currentPage === 'logout.php') {
+            logoutA.classList.add('active');
+        }
+        logoutLi.appendChild(logoutA);
+        ul.appendChild(logoutLi);
+
+
+
+        // Username display (not a link)
+        const usernameLi = document.createElement('li');
+        usernameLi.className = 'username-display';
+        usernameLi.textContent = username ? username : 'User ';
+        ul.appendChild(usernameLi);
+    } else {
+        // Login link
+        const loginLi = document.createElement('li');
+        const loginA = document.createElement('a');
+        loginA.href = 'login.php';
+        loginA.textContent = 'Login';
+        if (currentPage === 'login.php') {
+            loginA.classList.add('active');
+        }
+        loginLi.appendChild(loginA);
+        ul.appendChild(loginLi);
+    }
+
+
+
+    nav.appendChild(ul);
+
+
+
+    // Append logo and nav to header
+    header.appendChild(logoContainer);
+    header.appendChild(nav);
+
+
+
+    // Insert header into the DOM
+    const headerContainer = document.getElementById('header-container');
+    if (headerContainer) {
+        headerContainer.appendChild(header);
+    } else {
+        // If the container div doesn't exist, append directly to body
+        document.body.insertBefore(header, document.body.firstChild);
+    }
+})();
+</script>
+
+
+
+</body>
+</html>
