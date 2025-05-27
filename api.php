@@ -162,7 +162,7 @@ private function handleGetCart($apiKey) {
     $stmt = $this->db->prepare("
         SELECT c.PID, p.Name, p.Description, p.Brand, p.Category, p.Thumbnail, 
                c.Quantity, SUM(l.remaining) as Available
-        FROM cart c
+        FROM carts c
         JOIN products p ON c.PID = p.ProductID
         LEFT JOIN listings l ON p.ProductID = l.ProductID
         WHERE c.K = ?
@@ -172,7 +172,7 @@ private function handleGetCart($apiKey) {
     $cartItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $this->sendSuccess([
-        'cart' => $cartItems,
+        'carts' => $cartItems,
         'count' => count($cartItems)
     ]);
 }
@@ -197,24 +197,24 @@ private function handleSetCart($apiKey, $productId, $quantity) {
         throw new Exception("Not enough stock available (only $available left)", 400);
     }
 
-    $stmt = $this->db->prepare("SELECT Quantity FROM cart WHERE K = ? AND PID = ?");
+    $stmt = $this->db->prepare("SELECT Quantity FROM carts WHERE K = ? AND PID = ?");
     $stmt->execute([$apiKey, $productId]);
     $existingItem = $stmt->fetch();
 
     if ($existingItem) {
-        $stmt = $this->db->prepare("UPDATE cart SET Quantity = ? WHERE K = ? AND PID = ?");
+        $stmt = $this->db->prepare("UPDATE carts SET Quantity = ? WHERE K = ? AND PID = ?");
         $stmt->execute([$quantity, $apiKey, $productId]);
-        $message = "Cart item quantity updated";
+        $message = "Carts item quantity updated";
     } else {
         
-        $stmt = $this->db->prepare("INSERT INTO cart (K, PID, Quantity) VALUES (?, ?, ?)");
+        $stmt = $this->db->prepare("INSERT INTO carts (K, PID, Quantity) VALUES (?, ?, ?)");
         $stmt->execute([$apiKey, $productId, $quantity]);
-        $message = "Item added to cart";
+        $message = "Item added to carts";
     }
 
     $this->sendSuccess([
         'message' => $message,
-        'cartItem' => [
+        'cartsItem' => [
             'PID' => $productId,
             'Name' => $product['Name'],
             'Quantity' => $quantity,
@@ -224,15 +224,15 @@ private function handleSetCart($apiKey, $productId, $quantity) {
 }
 
 private function handleUnsetCart($apiKey, $productId) {
-    $stmt = $this->db->prepare("DELETE FROM cart WHERE K = ? AND PID = ?");
+    $stmt = $this->db->prepare("DELETE FROM carts WHERE K = ? AND PID = ?");
     $stmt->execute([$apiKey, $productId]);
 
     if ($stmt->rowCount() === 0) {
-        throw new Exception("Product not found in cart", 404);
+        throw new Exception("Product not found in carts", 404);
     }
 
     $this->sendSuccess([
-        'message' => 'Product removed from cart',
+        'message' => 'Product removed from carts',
         'productId' => $productId
     ]);
 }
