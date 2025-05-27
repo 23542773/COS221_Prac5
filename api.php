@@ -104,6 +104,9 @@ class API {
                 case 'wishlist':
                     $this->handleWishlist($data);
                     break;
+                case 'getAllUsers':
+                    $this->handleGetAllUsers($data);
+                    break;
                 default:
                     throw new Exception("Unknown API endpoint", 400);
             }
@@ -111,6 +114,43 @@ class API {
             $this->sendError($e->getMessage(), $e->getCode() ?: 500);
         }
     }
+
+    private function handleGetAllUsers($data) {
+    // Validate API key first (admin only)
+    if (!isset($data['apikey'])) {
+        throw new Exception("API key is required", 400);
+    }
+    
+    try {
+        // Verify API key exists and is admin
+        $stmt = $this->db->prepare("SELECT 1 FROM admin WHERE K = ?");
+        $stmt->execute([$data['apikey']]);
+        if (!$stmt->fetch()) {
+            throw new Exception("Unauthorized - Admin access required", 403);
+        }
+
+        // Set default limit with bounds (1-100)
+        $limit = isset($data['limit']) ? min(max(1, (int)$data['limit']), 100) : 50;
+        
+        // Get users (excluding sensitive fields)
+        $stmt = $this->db->prepare("
+            SELECT API_Key, Name, Surname, Email, Phone_Number 
+            FROM users 
+            ORDER BY Name ASC 
+            LIMIT :limit
+        ");
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $this->sendSuccess([
+            'count' => count($users),
+            'users' => $users
+        ]);
+    } catch (PDOException $e) {
+        throw new Exception("Database error: " . $e->getMessage(), 500);
+    }
+}
 
     private function handleGetAllCategories($data) {
     // Validate API key
@@ -189,7 +229,6 @@ private function handleGetWishlist($apiKey) {
         FROM wishlist w
         JOIN products p ON w.PID = p.ProductID
         WHERE w.K = ?
-        ORDER BY w.AddedAt DESC
     ");
     $stmt->execute([$apiKey]);
     $wishlistItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -216,7 +255,7 @@ private function handleSetWishlist($apiKey, $productId) {
     }
 
     // Add to wishlist
-    $stmt = $this->db->prepare("INSERT INTO wishlist (K, PID, AddedAt) VALUES (?, ?, NOW())");
+    $stmt = $this->db->prepare("INSERT INTO wishlist (K, PID) VALUES (?, ?)");
     $stmt->execute([$apiKey, $productId]);
 
     $this->sendSuccess([
@@ -475,9 +514,6 @@ private function handleUnsetWishlist($apiKey, $productId) {
     }
 }
 
-    // CREATE: Add new admin
-
-
     private function handleGetAllRetailers($data) {
     // Validate API key first
     if (!isset($data['apikey'])) {
@@ -547,15 +583,18 @@ private function handleUnsetWishlist($apiKey, $productId) {
             'joins' => [
                 'productratings' => ['products.ProductID' => 'productratings.PID']
             ],
-            'sortable' => ['averageRating', 'ratingCount', 'Name', 'Brand', 'Category']
+            'sortable' => ['averageRating', 'ratingCount', 'Name', 'Brand', 'Category'],
+            'idFields' => ['products.ProductID'] // Specify which fields are IDs
         ],
         'retailers' => [
             'fields' => ['retailers.RetailerID', 'Name'],
-            'columns' => ['retailers.RetailerID', 'Name', 'URL']
+            'columns' => ['retailers.RetailerID', 'Name', 'URL'],
+            'idFields' => ['retailers.RetailerID']
         ],
         'productratings' => [
             'fields' => ['productratings.K', 'productratings.PID', 'Rating', 'Date'],
-            'columns' => ['productratings.K', 'productratings.PID', 'Rating', 'Comment', 'Date']
+            'columns' => ['productratings.K', 'productratings.PID', 'Rating', 'Comment', 'Date'],
+            'idFields' => ['productratings.K', 'productratings.PID']
         ],
         'listings' => [
             'fields' => ['listings.ProductID', 'listings.RID', 'quantity', 'price', 'remaining'],
@@ -564,14 +603,16 @@ private function handleUnsetWishlist($apiKey, $productId) {
                 'products' => ['listings.ProductID' => 'products.ProductID'],
                 'retailers' => ['listings.RID' => 'retailers.RetailerID']
             ],
-            'sortable' => ['price'] // Added sortable fields
+            'sortable' => ['price'],
+            'idFields' => ['listings.ProductID', 'listings.RID']
         ],
         'orders' => [
             'fields' => ['orders.OrderID', 'orders.K', 'OrderDate', 'Total'],
             'columns' => ['orders.OrderID', 'orders.K', 'OrderDate', 'Total'],
             'joins' => [
                 'users' => ['orders.K' => 'users.API_Key']
-            ]
+            ],
+            'idFields' => ['orders.OrderID', 'orders.K']
         ]
     ]; 
 
@@ -615,9 +656,18 @@ private function handleUnsetWishlist($apiKey, $productId) {
         if (!in_array($data['field'], $tableConfig['fields'])) {
             throw new Exception("Invalid field for the specified table", 400);
         }
-        $searchTerm = "%{$data['search']}%";
-        $whereConditions[] = "{$data['field']} LIKE :search";
-        $params[':search'] = $searchTerm;
+        
+        // Check if this is an ID field (exact match) or regular field (fuzzy search)
+        if (isset($tableConfig['idFields']) && in_array($data['field'], $tableConfig['idFields'])) {
+            // Exact match for ID fields
+            $whereConditions[] = "{$data['field']} = :search";
+            $params[':search'] = $data['search'];
+        } else {
+            // Fuzzy search for non-ID fields
+            $searchTerm = "%{$data['search']}%";
+            $whereConditions[] = "{$data['field']} LIKE :search";
+            $params[':search'] = $searchTerm;
+        }
     } elseif (isset($data['field']) || isset($data['search'])) {
         throw new Exception("Both field and search parameters must be provided together", 400);
     }
