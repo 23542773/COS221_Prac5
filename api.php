@@ -189,7 +189,6 @@ private function handleGetWishlist($apiKey) {
         FROM wishlist w
         JOIN products p ON w.PID = p.ProductID
         WHERE w.K = ?
-        ORDER BY w.AddedAt DESC
     ");
     $stmt->execute([$apiKey]);
     $wishlistItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -216,7 +215,7 @@ private function handleSetWishlist($apiKey, $productId) {
     }
 
     // Add to wishlist
-    $stmt = $this->db->prepare("INSERT INTO wishlist (K, PID, AddedAt) VALUES (?, ?, NOW())");
+    $stmt = $this->db->prepare("INSERT INTO wishlist (K, PID) VALUES (?, ?)");
     $stmt->execute([$apiKey, $productId]);
 
     $this->sendSuccess([
