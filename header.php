@@ -13,7 +13,6 @@
             padding: 1rem 2rem;
         }
 
-
         header > div {
             font-weight: 700;
             font-size: 1.4rem;
@@ -25,7 +24,6 @@
             gap: 0.5rem;
         }
 
-
         nav ul {
             display: flex;
             list-style: none;
@@ -33,8 +31,6 @@
             margin: 0;
             gap: 2rem;
         }
-
-
 
         nav ul li {
             cursor: pointer;
@@ -44,8 +40,6 @@
             padding: 0.25rem 0;
             transition: color 0.3s ease;
         }
-
-
 
         nav ul li a {
             cursor: pointer;
@@ -57,26 +51,18 @@
             text-decoration: none;
         }
 
-
-
         nav ul li:hover {
             color: #2edf84;
         }
-
-
 
         nav ul li a:hover {
             color: #2edf84;
         }
 
-
-
         .logo {
             max-height: 40px;
             object-fit: contain;
         }
-
-
 
         #logop {
             margin: 0;
@@ -86,13 +72,9 @@
             user-select: none;
         }
 
-
-
         .active {
             color: #747378;
         }
-
-
 
         .username-display {
             font-weight: 600;
@@ -105,11 +87,7 @@
 </head>
 <body>
 
-
-
 <div id="header-container"></div>
-
-
 
 <script>
 (function() {
@@ -120,17 +98,15 @@
     console.log(isLoggedIn);
 
 
-
     // Get current page filename
     const currentPage = window.location.pathname.split('/').pop();
-
 
 
     // Map navigation links: text, href, and filename for matching active state
     const navLinks = [
         { text: 'Search', href: 'index.php', page: 'index.php' },
         { text: 'Products', href: 'COS221/products.php', page: 'products.php' },
-        { text: 'Dashboard', href: 'COS221/toprated.php', page: 'tpprated.php' },
+        { text: 'Dashboard', href: 'COS221/dashboard.php', page: 'dashboard.php' },
         { text: 'Wishlist', href: 'COS221/wishlist.php', page: 'wishlist.php' },
         { text: 'Orders', href: 'COS221/orders.php', page: 'orders.php' },
         { text: 'Cart', href: 'COS221/cart.php', page: 'cart.php' },
