@@ -1,6 +1,10 @@
  var retailers=[];
+var currentid;
+var currentidx;
  
  async function viewproduct(id,idx){
+    currentid=id;
+    currentidx=idx;
     var view= document.getElementById("view");
     view.style.flex=2;
     var rating= await getreview(id);
@@ -8,7 +12,6 @@
     for(var i=0;i<(allof.results).length;i++){
         (allof.results[i]).retailername=getretailername((allof.results[i]).RID);
     }
-    console.log(allof.results);
     const data={
         title: products[idx].Name,
         imageSrc: products[idx].Thumbnail, 
@@ -25,7 +28,7 @@
 function closeview(){
     var view= document.getElementById("view");
     var viewd= document.getElementById("viewdata");
-    viewd.innerHTML='<h2 id="title"></h2><div id="img"><img id="image"></div><p id="description"></p><p id="rating"></p><div id="reviews"><div class="review"><h6 class="reviewname"></h6><p class="reviewtext"></p><p class="reviewrating"></p></div></div>';
+    viewd.innerHTML='<h2 id="title"></h2><div id="img"><img id="image"></div><p id="description"></p><p id="rating"></p><div id="reviews"><div class="review"><h6 class="reviewname"></h6><p class="reviewtext"></p><p class="reviewrating"></p></div></div><div id="prices"><p class="price"></p></div></div>';
     view.style.flex=0;
 }
 
@@ -64,8 +67,8 @@ async function  getproducts(){
             // Handle successful registration
             const result = await response.json();
             products=result.data;
-            console.log(products);
             var p= document.getElementById("products");
+            p.innerHTML="";
             for(var i=0;i<products.length;i++){
                 var block=createProductBlock(products[i].Thumbnail,products[i].Name,products[i].price,products[i].averageRating,products[i].ProductID,i);
                 p.appendChild(block);
@@ -346,7 +349,7 @@ function populateProductDetails(data) {
 async function getallof(id){
     const data={
         api:"GetDistinct",
-        apikey:"dafdda51e1bf23147967c1041cac5d6b",
+        apikey:localStorage.getItem('apikey')!=null ? localStorage.getItem('apikey'):"dafdda51e1bf23147967c1041cac5d6b",
         table:"listings", 
         field:"listings.ProductID",
         search:id,
@@ -387,4 +390,139 @@ function getretailername(id){
         }
     }
     return null;
+}
+
+const addReviewBtn = document.getElementById('addreview');
+const modal = document.getElementById('reviewModal');
+const stars = Array.from(document.querySelectorAll('.star'));
+const reviewText = document.getElementById('reviewText');
+const submitBtn = document.getElementById('submitReview');
+const cancelBtn = document.getElementById('cancelReview');
+const errorMessage = document.getElementById('errorMessage');
+let selectedRating = 0;
+
+function openModal() {
+    modal.style.display = 'block';
+    modal.setAttribute('aria-hidden', 'false');
+    resetModal();
+    stars[0].focus();
+}
+function closeModal() {
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+    selectedRating = 0;
+}
+
+function resetModal() {
+    selectedRating = 0;
+    reviewText.value = '';
+    errorMessage.style.display = 'none';
+    stars.forEach(star => {
+      star.classList.remove('selected', 'hover');
+      star.setAttribute('aria-checked', 'false');
+      star.setAttribute('tabindex', '-1');
+    });
+    stars[0].setAttribute('tabindex', '0');
+}
+
+function updateStars(rating) {
+    stars.forEach(star => {
+      star.classList.toggle('selected', Number(star.dataset.value) <= rating);
+      star.setAttribute('aria-checked', Number(star.dataset.value) === rating ? 'true' : 'false');
+    });
+}
+
+stars.forEach((star, index) => {
+    star.addEventListener('click', () => {
+      selectedRating = Number(star.dataset.value);
+      updateStars(selectedRating);
+    });
+    star.addEventListener('mouseenter', () => {
+      stars.forEach(s => s.classList.remove('hover'));
+      for (let i = 0; i <= index; i++) {
+        stars[i].classList.add('hover');
+      }
+    });
+    star.addEventListener('mouseleave', () => {
+      stars.forEach(s => s.classList.remove('hover'));
+    });
+    star.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        let next = (index + 1) % stars.length;
+        stars[next].focus();
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        let prev = (index - 1 + stars.length) % stars.length;
+        stars[prev].focus();
+      } else if(e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        selectedRating = Number(star.dataset.value);
+        updateStars(selectedRating);
+      }
+    });
+  });
+
+addReviewBtn.addEventListener('click', openModal);
+cancelBtn.addEventListener('click', closeModal);
+
+submitBtn.addEventListener('click', async () => {
+    errorMessage.style.display = 'none';
+    if (selectedRating === 0) {
+      errorMessage.textContent = 'Please select a star rating.';
+      errorMessage.style.display = 'block';
+      stars[0].focus();
+      return;
+    }
+    if (!reviewText.value.trim()) {
+      errorMessage.textContent = 'Please write a review.';
+      errorMessage.style.display = 'block';
+      reviewText.focus();
+      return;
+    }
+    // Collect review data
+    const reviewData = {
+        api:"rating",
+        apikey:localStorage.getItem('apikey')!=null ? localStorage.getItem('apikey'):"dafdda51e1bf23147967c1041cac5d6b",
+        operation:"set",
+        rating: selectedRating,
+        comment: reviewText.value,
+        productId:currentid
+
+    };
+    await addrating(reviewData);
+    closeview();
+    getproducts();
+    viewproduct(currentid,currentidx);
+    // Here you would typically send reviewData to backend or append to UI
+    closeModal();
+    // For example, append review to #reviews div if required
+    //addReviewToPage(reviewData);
+});
+
+async function addrating(data){
+     try {
+            // Send data to the API
+            const response = await fetch('../../api_cos221.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            });
+
+            // Check if the response is ok (status in the range 200-299)
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.data || 'Get Products failed');
+            }
+
+            // Handle successful registration
+            const result = await response.json();
+            console.log(result.data);
+
+
+        } catch (error) {
+            console.error('Error:', error);
+        }
 }
